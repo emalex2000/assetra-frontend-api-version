@@ -8,7 +8,7 @@ import HeroRight from "./HeroRight";
 export default function Hero(){
     return(
         <>
-            <div className="flex flex-col gap-6  items-center text-center max-w-238.5 pb-3 pt-20">
+            <div className="flex flex-col gap-6 items-center text-center pb-3 pt-20">
                 <HeroHeading 
                 mainText={"Take Full Controll"} 
                 highlightText={"Of Your Organisations"}

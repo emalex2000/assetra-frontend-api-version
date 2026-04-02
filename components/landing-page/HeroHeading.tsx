@@ -22,7 +22,7 @@ const HeroHeading: React.FC<HeroHeadingProps> = ({
 }) => {
   return (
     <h1
-      className={`text-[30px] md:text-[40px] font-bold leading-tight ${className}`}
+      className={`text-[30px] md:text-[40px] max-w-238.5 font-bold leading-tight ${className}`}
     >
       {/* Main Text */}
       {mainText}{" "}

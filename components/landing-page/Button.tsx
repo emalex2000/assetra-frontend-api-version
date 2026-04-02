@@ -30,7 +30,7 @@ const Button: React.FC<ButtonProps> = ({
   const variants: Record<ButtonVariant, string> = {
     black: "bg-black text-white hover:bg-gray-700",
     white:
-      "border border-black text-black hover:bg-black hover:text-white",
+      "border border-black text-black hover:bg-blue-600 hover:border-none hover:text-white",
   };
 
   const content = (
