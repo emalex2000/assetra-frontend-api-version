@@ -71,21 +71,22 @@ export default function PricingSection() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
 
   return (
-    <section className="py-16 px-4 sm:px-6 lg:px-16 bg-gray-50">
+    <section className="py-16 flex flex-col gap-3 px-4 sm:px-6 lg:px-16 bg-gray-50">
       
       {/* HEADER */}
-      <div className="text-center max-w-2xl mx-auto mb-10">
-        <h1 className="text-2xl sm:text-3xl font-semibold mb-3">
+      <div className="text-center flex flex-col gap-3 max-w-2xl mx-auto">
+        <h1 className="text-2xl sm:text-3xl font-semibold">
           Simple and Transparent Pricing
         </h1>
         <p className="text-gray-500 text-sm sm:text-base">
-          Choose the plan that best fits your organization's device management needs.
+          Choose the plan that best fits your organization's device management needs. 
+          Start small and upgrade as your organization grows.
         </p>
       </div>
 
       {/* TOGGLE */}
-      <div className="flex justify-center mb-10">
-        <div className="bg-gray-200 p-1 rounded-full flex">
+      <div className="flex justify-center mb-10 pt-10 bg-white border">
+        <div className="bg-white p-1 rounded-full border flex">
           <button
             onClick={() => setBilling("monthly")}
             className={`px-5 py-2 rounded-full text-sm transition ${
