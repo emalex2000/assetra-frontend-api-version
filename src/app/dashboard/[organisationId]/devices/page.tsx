@@ -1,11 +1,19 @@
 "use client";
 
-import { JSX, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, JSX, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { FiPlus, FiX, FiTag, FiMonitor, FiSearch } from "react-icons/fi";
+import {
+  FiPlus,
+  FiX,
+  FiTag,
+  FiMonitor,
+  FiSearch,
+  FiChevronDown,
+} from "react-icons/fi";
+import { getData } from "country-list";
+
 import SideBar from "../../../../../components/dashboard/LayoutNav";
 import { apiFetch } from "../../../../../lib/apiClient";
-
 
 type Device = {
   asset_id: string;
@@ -28,6 +36,42 @@ type CategoryFormData = {
   description: string;
 };
 
+type AssetFormData = {
+  name: string;
+  serial_number: string;
+  model: string;
+  category: string;
+  location_country: string;
+};
+
+type AssetPayload = {
+  asset_id: string;
+  name?: string;
+  serial_number?: string;
+  model?: string;
+  status?: string;
+  condition?: string;
+  category_name?: string;
+  current_holder_name?: string;
+};
+
+const extractErrorMessage = (data: Record<string, unknown>): string => {
+  if (typeof data.detail === "string") return data.detail;
+  if (typeof data.error === "string") return data.error;
+  if (typeof data.message === "string") return data.message;
+
+  for (const value of Object.values(data)) {
+    if (Array.isArray(value) && value.length > 0) {
+      return String(value[0]);
+    }
+
+    if (typeof value === "string") {
+      return value;
+    }
+  }
+
+  return "Something went wrong.";
+};
 
 export default function DevicesPage(): JSX.Element {
   const params = useParams<{ organisationId: string }>();
@@ -35,20 +79,40 @@ export default function DevicesPage(): JSX.Element {
 
   const [devices, setDevices] = useState<Device[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+
   const [loadingDevices, setLoadingDevices] = useState<boolean>(true);
   const [loadingCategories, setLoadingCategories] = useState<boolean>(true);
+
   const [deviceError, setDeviceError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
 
   const [search, setSearch] = useState<string>("");
 
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] =
+    useState<boolean>(false);
   const [creatingCategory, setCreatingCategory] = useState<boolean>(false);
   const [categoryForm, setCategoryForm] = useState<CategoryFormData>({
     name: "",
     description: "",
   });
-  const [categoryFormError, setCategoryFormError] = useState<string | null>(null);
+  const [categoryFormError, setCategoryFormError] = useState<string | null>(
+    null
+  );
+
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState<boolean>(false);
+  const [creatingAsset, setCreatingAsset] = useState<boolean>(false);
+  const [assetFormError, setAssetFormError] = useState<string | null>(null);
+  const [assetForm, setAssetForm] = useState<AssetFormData>({
+    name: "",
+    serial_number: "",
+    model: "",
+    category: "",
+    location_country: "",
+  });
+
+  const countries = useMemo(() => {
+    return getData().sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
 
   useEffect(() => {
     const fetchDevices = async () => {
@@ -56,20 +120,38 @@ export default function DevicesPage(): JSX.Element {
         setLoadingDevices(true);
         setDeviceError(null);
 
-        // Replace with your real device endpoint
         const response = await apiFetch(
-          `/api/assets/organisations/${organisationId}/devices/`,
+          `/api/assets/${organisationId}/assets/`,
           {
             method: "GET",
           }
         );
 
+        const data = await response.json();
+
         if (!response.ok) {
-          throw new Error("Failed to fetch devices.");
+          throw new Error(extractErrorMessage(data));
         }
 
-        const data = await response.json();
-        setDevices(Array.isArray(data) ? data : data.results || []);
+        const assetList = Array.isArray(data) ? data : data.results || [];
+
+        const normalizedDevices: Device[] = assetList.map(
+          (item: Record<string, unknown>) => ({
+            asset_id: String(item.asset_id ?? ""),
+            asset_name: String(item.asset_name ?? item.name ?? "—"),
+            asset_tag: String(
+              item.asset_tag ?? item.serial_number ?? item.tag ?? "—"
+            ),
+            category_name: String(item.category_name ?? "—"),
+            assigned_to: String(
+              item.assigned_to ?? item.current_holder_name ?? "—"
+            ),
+            status: String(item.status ?? "—"),
+            condition: String(item.condition ?? "—"),
+          })
+        );
+
+        setDevices(normalizedDevices);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Failed to load devices.";
@@ -86,17 +168,18 @@ export default function DevicesPage(): JSX.Element {
         setCategoryError(null);
 
         const response = await apiFetch(
-          `/api/assets/organisations/${organisationId}/categories/`,
+          `/api/assets/${organisationId}/categories/`,
           {
             method: "GET",
           }
         );
 
+        const data = await response.json();
+
         if (!response.ok) {
-          throw new Error("Failed to fetch categories.");
+          throw new Error(extractErrorMessage(data));
         }
 
-        const data = await response.json();
         setCategories(Array.isArray(data) ? data : data.results || []);
       } catch (error) {
         const message =
@@ -142,7 +225,7 @@ export default function DevicesPage(): JSX.Element {
       setCreatingCategory(true);
 
       const response = await apiFetch(
-        `/api/assets/organisations/${organisationId}/categories/`,
+        `/api/assets/${organisationId}/categories/`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -155,12 +238,7 @@ export default function DevicesPage(): JSX.Element {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data?.detail ||
-            data?.name?.[0] ||
-            data?.error ||
-            "Failed to create category."
-        );
+        throw new Error(extractErrorMessage(data));
       }
 
       setCategories((prev) =>
@@ -182,6 +260,109 @@ export default function DevicesPage(): JSX.Element {
     }
   };
 
+  const resetAssetForm = () => {
+    setAssetForm({
+      name: "",
+      serial_number: "",
+      model: "",
+      category: "",
+      location_country: "",
+    });
+    setAssetFormError(null);
+  };
+
+  const closeAssetModal = () => {
+    setIsAssetModalOpen(false);
+    resetAssetForm();
+  };
+
+  const handleAssetInputChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+
+    setAssetForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCreateAsset = async () => {
+    setAssetFormError(null);
+
+    if (!assetForm.name.trim()) {
+      setAssetFormError("Device name is required.");
+      return;
+    }
+
+    if (!assetForm.serial_number.trim()) {
+      setAssetFormError("Serial number is required.");
+      return;
+    }
+
+    if (!assetForm.category) {
+      setAssetFormError("Please select a category.");
+      return;
+    }
+
+    if (!assetForm.location_country) {
+      setAssetFormError("Please select a location country.");
+      return;
+    }
+
+    try {
+      setCreatingAsset(true);
+
+      const response = await apiFetch(
+        `/api/assets/${organisationId}/create_asset/`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: assetForm.name.trim(),
+            serial_number: assetForm.serial_number.trim(),
+            model: assetForm.model.trim(),
+            category: assetForm.category,
+            location_country: assetForm.location_country,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(extractErrorMessage(data));
+      }
+
+      const createdAsset = data as AssetPayload;
+
+      setDevices((prev) => [
+        {
+          asset_id: createdAsset.asset_id,
+          asset_name: createdAsset.name || assetForm.name.trim(),
+          asset_tag:
+            createdAsset.serial_number || assetForm.serial_number.trim(),
+          category_name:
+            createdAsset.category_name ||
+            categories.find((cat) => cat.category_id === assetForm.category)
+              ?.name ||
+            "—",
+          assigned_to: createdAsset.current_holder_name || "—",
+          status: createdAsset.status || "AVAILABLE",
+          condition: createdAsset.condition || "GOOD",
+        },
+        ...prev,
+      ]);
+
+      closeAssetModal();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create device.";
+      setAssetFormError(message);
+    } finally {
+      setCreatingAsset(false);
+    }
+  };
+
   return (
     <SideBar>
       <div className="flex flex-col gap-6">
@@ -191,7 +372,8 @@ export default function DevicesPage(): JSX.Element {
               Device Management
             </h1>
             <p className="text-sm text-gray-500">
-              View all devices, manage records, and organize them with categories.
+              View all devices, manage records, and organize them with
+              categories.
             </p>
           </div>
 
@@ -207,6 +389,10 @@ export default function DevicesPage(): JSX.Element {
 
             <button
               type="button"
+              onClick={() => {
+                setIsAssetModalOpen(true);
+                setAssetFormError(null);
+              }}
               className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700"
             >
               <FiPlus size={16} />
@@ -448,6 +634,164 @@ export default function DevicesPage(): JSX.Element {
                   {creatingCategory ? "Creating..." : "Create Category"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAssetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Add Device
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Create a new asset for this organisation.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAssetModal}
+                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Device Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={assetForm.name}
+                  onChange={handleAssetInputChange}
+                  placeholder="e.g. HP EliteBook"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Serial Number
+                </label>
+                <input
+                  type="text"
+                  name="serial_number"
+                  value={assetForm.serial_number}
+                  onChange={handleAssetInputChange}
+                  placeholder="Enter serial number"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Model
+                </label>
+                <input
+                  type="text"
+                  name="model"
+                  value={assetForm.model}
+                  onChange={handleAssetInputChange}
+                  placeholder="e.g. 840 G8"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Category
+                </label>
+                <div className="relative mt-1">
+                  <select
+                    name="category"
+                    value={assetForm.category}
+                    onChange={handleAssetInputChange}
+                    disabled={loadingCategories || categories.length === 0}
+                    className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  >
+                    <option value="">
+                      {loadingCategories
+                        ? "Loading categories..."
+                        : categories.length === 0
+                        ? "No categories available"
+                        : "Select category"}
+                    </option>
+
+                    {categories.map((category) => (
+                      <option
+                        key={category.category_id}
+                        value={category.category_id}
+                      >
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <FiChevronDown
+                    size={18}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Location Country
+                </label>
+                <div className="relative mt-1">
+                  <select
+                    name="location_country"
+                    value={assetForm.location_country}
+                    onChange={handleAssetInputChange}
+                    className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select country</option>
+
+                    {countries.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <FiChevronDown
+                    size={18}
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {assetFormError && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {assetFormError}
+              </div>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeAssetModal}
+                className="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCreateAsset}
+                disabled={creatingAsset}
+                className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {creatingAsset ? "Creating..." : "Create Device"}
+              </button>
             </div>
           </div>
         </div>
