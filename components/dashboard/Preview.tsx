@@ -1,348 +1,434 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   FiAlertCircle,
-  FiAlertTriangle,
   FiCheckCircle,
-  FiDownload,
-  FiSearch,
-  FiChevronDown,
-  FiChevronLeft,
-  FiChevronRight,
+  FiClock,
+  FiCopy,
+  FiLoader,
+  FiShield,
 } from "react-icons/fi";
+import { FaArrowRight } from "react-icons/fa";
 
-const previewRows = [
-  {
-    id: 1,
-    assetName: "Laptop A",
-    serialNumber: "",
-    model: "HP ProBh 450",
-    category: "Laptop",
-    location: "Lagos Office",
-    error: "Serial number is missing",
-    type: "error",
-  },
-  {
-    id: 2,
-    assetName: "Printer B",
-    serialNumber: "12345",
-    model: "HP LaserJet 12",
-    category: "Printer",
-    location: "Lagos Office",
-    error: "Duplicate serial number",
-    type: "warning",
-  },
-  {
-    id: 3,
-    assetName: "Desktop C",
-    serialNumber: "12345",
-    model: "Del Optilex 703",
-    category: "Desktop",
-    location: "Abuja Office",
-    error: "Serial number duplicated",
-    type: "neutral",
-  },
-  {
-    id: 4,
-    assetName: "Monitor D",
-    serialNumber: "INVALID-SN76531",
-    model: "OOO1243",
-    category: "Monitor",
-    location: "Abuja Office",
-    error: "Invalid serial number format",
-    type: "error",
-  },
-  {
-    id: 5,
-    assetName: "Tablet E",
-    serialNumber: "OOO1243",
-    model: "TAB5678",
-    category: "Tablet",
-    location: "Abuja Office",
-    error: "Serial number duplicated",
-    type: "neutral",
-  },
-  {
-    id: 6,
-    assetName: "Monitor F",
-    serialNumber: "",
-    model: "",
-    category: "Monitor",
-    location: "Abuja Office",
-    error: "Serial number is missing",
-    type: "error",
-  },
-] as const;
+import {
+  AssetImportSession,
+  AssetImportValidationResponse,
+  AssetImportValidationRow,
+} from "@/types/import";
+import { apiFetch } from "../../lib/apiClient";
 
-function getErrorStyle(type: string) {
-  switch (type) {
-    case "error":
-      return {
-        row: "bg-red-50/40",
-        text: "text-red-600",
-        icon: <FiAlertCircle size={16} className="text-red-500 shrink-0" />,
-      };
-    case "warning":
-      return {
-        row: "bg-amber-50/40",
-        text: "text-amber-600",
-        icon: <FiAlertTriangle size={16} className="text-amber-500 shrink-0" />,
-      };
-    default:
-      return {
-        row: "bg-gray-50",
-        text: "text-gray-500",
-        icon: <FiAlertCircle size={16} className="text-gray-400 shrink-0" />,
-      };
-  }
-}
+type PreviewAndValidateProps = {
+  organisationId: string;
+  importSession: AssetImportSession;
+  onValidated: (data: AssetImportValidationResponse) => void;
+};
 
-export default function PreviewAndValidate() {
-  return (
-    <div className="w-full">
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-4 py-5 sm:px-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-semibold">
-                1
-              </div>
+const FIELD_LABELS: Record<string, string> = {
+  name: "Asset Name",
+  serial_number: "Serial Number",
+  model: "Model",
+  category: "Category",
+  location_country: "Location Country",
+};
 
-              <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base">
-                <h3 className="text-xl font-semibold text-gray-900 sm:text-2xl">
-                  Some issues detected
-                </h3>
-                <span className="text-gray-300 hidden sm:inline">|</span>
-                <span className="text-gray-500">35 Errors</span>
-                <span className="text-gray-300 hidden sm:inline">|</span>
-                <span className="text-gray-500">12 Duplicates</span>
-              </div>
-            </div>
+export default function PreviewAndValidate({
+  organisationId,
+  importSession,
+  onValidated,
+}: PreviewAndValidateProps) {
+  const [validationResult, setValidationResult] =
+    useState<AssetImportValidationResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isContinuing, setIsContinuing] = useState(false);
+  const [error, setError] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"all" | "valid" | "invalid">(
+    "all"
+  );
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                className="inline-flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700"
-              >
-                Show All
-                <FiChevronDown size={16} />
-              </button>
+  useEffect(() => {
+    let isMounted = true;
 
-              <button
-                type="button"
-                className="inline-flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700"
-              >
-                All Statuses
-                <FiChevronDown size={16} />
-              </button>
+    const runValidation = async () => {
+      try {
+        setIsLoading(true);
+        setError("");
 
-              <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
-                <FiSearch className="text-gray-400" size={16} />
-                <input
-                  type="text"
-                  placeholder="Search"
-                  className="w-full bg-transparent text-sm text-gray-700 outline-none placeholder:text-gray-400 sm:w-[140px]"
-                />
-              </div>
-            </div>
+        const response = await apiFetch(
+          `/api/assets/${organisationId}/imports/${importSession.import_id}/validate/`,
+          {
+            method: "POST",
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          const detail =
+            data?.detail ||
+            data?.message ||
+            "Validation failed. Please try again.";
+          throw new Error(detail);
+        }
+
+        if (isMounted) {
+          setValidationResult(data as AssetImportValidationResponse);
+        }
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Validation failed. Please try again.";
+
+        if (isMounted) {
+          setError(message);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    runValidation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [organisationId, importSession.import_id]);
+
+  const rows = validationResult?.preview_rows ?? [];
+
+  const filteredRows = useMemo(() => {
+    if (activeFilter === "valid") {
+      return rows.filter((row) => row.is_valid);
+    }
+
+    if (activeFilter === "invalid") {
+      return rows.filter((row) => !row.is_valid);
+    }
+
+    return rows;
+  }, [rows, activeFilter]);
+
+  const hasInvalidRows = (validationResult?.summary.invalid_rows ?? 0) > 0;
+  const canContinue = !!validationResult && !hasInvalidRows;
+
+  const handleContinue = async () => {
+    if (!validationResult) return;
+
+    try {
+      setIsContinuing(true);
+      setError("");
+      onValidated(validationResult);
+    } catch {
+      setError("Unable to continue.");
+    } finally {
+      setIsContinuing(false);
+    }
+  };
+
+  const renderRowFields = (row: AssetImportValidationRow) => {
+    const entries = Object.entries(row.normalized_data ?? {});
+
+    if (entries.length === 0) {
+      return (
+        <p className="text-sm text-gray-500">
+          No mapped values available for this row.
+        </p>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {entries.map(([key, value]) => (
+          <div
+            key={key}
+            className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              {FIELD_LABELS[key] || key}
+            </p>
+            <p className="mt-1 break-words text-sm font-medium text-gray-900">
+              {value === null || value === "" ? "—" : String(value)}
+            </p>
           </div>
+        ))}
+      </div>
+    );
+  };
 
-          <div className="mt-5 flex flex-col gap-3 lg:flex-row">
-            <div className="flex flex-1 items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              <FiAlertTriangle size={18} className="shrink-0 text-amber-500" />
-              <p>Please address the issues marked below to proceed with the import.</p>
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[28px] border border-gray-100 bg-gray-50 px-6 py-10 text-center">
+        <div className="mb-4 rounded-2xl bg-blue-50 p-4 text-blue-600">
+          <FiLoader className="animate-spin text-2xl" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900">
+          Validating your file
+        </h3>
+        <p className="mt-2 max-w-md text-sm text-gray-500 sm:text-base">
+          We are checking required fields, duplicates, category matches, and country values. Because spreadsheets always need supervision.
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-[28px] border border-red-200 bg-red-50 px-5 py-5 sm:px-6">
+        <div className="flex items-start gap-3">
+          <div className="rounded-2xl bg-white p-3 text-red-600 shadow-sm">
+            <FiAlertCircle className="text-xl" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-red-800">
+              Validation failed
+            </h3>
+            <p className="mt-1 text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!validationResult) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        <div className="rounded-[28px] border border-gray-100 bg-white px-5 py-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+              <FiCopy className="text-xl" />
             </div>
-
-            <button
-              type="button"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-600 transition hover:bg-blue-100"
-            >
-              <FiDownload size={16} />
-              Download error report
-            </button>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Total Rows
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {validationResult.summary.total_rows}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="px-4 py-5 sm:px-6">
-          {/* Desktop table */}
-          <div className="hidden overflow-hidden rounded-2xl border border-gray-200 lg:block">
-            <div className="grid grid-cols-[60px_1.2fr_1.2fr_1fr_1fr_1fr_1.5fr] bg-gray-50">
-              <div className="border-r border-gray-200 px-4 py-4 text-sm font-semibold text-gray-700">
-                #
-              </div>
-              <div className="border-r border-gray-200 px-4 py-4 text-sm font-semibold text-gray-700">
-                Asset Name
-              </div>
-              <div className="border-r border-gray-200 px-4 py-4 text-sm font-semibold text-gray-700">
-                Serial Number
-              </div>
-              <div className="border-r border-gray-200 px-4 py-4 text-sm font-semibold text-gray-700">
-                Model
-              </div>
-              <div className="border-r border-gray-200 px-4 py-4 text-sm font-semibold text-gray-700">
-                Category
-              </div>
-              <div className="border-r border-gray-200 px-4 py-4 text-sm font-semibold text-gray-700">
-                Location
-              </div>
-              <div className="px-4 py-4 text-sm font-semibold text-gray-700">
-                Error State
-              </div>
+        <div className="rounded-[28px] border border-green-100 bg-green-50 px-5 py-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-white p-3 text-green-600 shadow-sm">
+              <FiCheckCircle className="text-xl" />
             </div>
-
-            {previewRows.map((row) => {
-              const style = getErrorStyle(row.type);
-
-              return (
-                <div
-                  key={row.id}
-                  className={`grid grid-cols-[60px_1.2fr_1.2fr_1fr_1fr_1fr_1.5fr] border-t border-gray-200 ${style.row}`}
-                >
-                  <div className="border-r border-gray-200 px-4 py-4 text-sm text-gray-700">
-                    {row.id}
-                  </div>
-                  <div className="border-r border-gray-200 px-4 py-4 text-sm text-gray-800">
-                    {row.assetName}
-                  </div>
-                  <div
-                    className={`border-r border-gray-200 px-4 py-4 text-sm ${
-                      row.serialNumber ? "text-gray-700" : "text-gray-400"
-                    } ${row.serialNumber === "INVALID-SN76531" ? "text-red-600" : ""}`}
-                  >
-                    {row.serialNumber || "—"}
-                  </div>
-                  <div className="border-r border-gray-200 px-4 py-4 text-sm text-gray-600">
-                    {row.model || "—"}
-                  </div>
-                  <div className="border-r border-gray-200 px-4 py-4 text-sm text-gray-700">
-                    {row.category}
-                  </div>
-                  <div className="border-r border-gray-200 px-4 py-4 text-sm text-gray-700">
-                    {row.location}
-                  </div>
-                  <div className={`flex items-center gap-2 px-4 py-4 text-sm ${style.text}`}>
-                    {style.icon}
-                    <span>{row.error}</span>
-                  </div>
-                </div>
-              );
-            })}
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-green-700">
+                Valid Rows
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {validationResult.summary.valid_rows}
+              </p>
+            </div>
           </div>
+        </div>
 
-          {/* Mobile cards */}
-          <div className="space-y-4 lg:hidden">
-            {previewRows.map((row) => {
-              const style = getErrorStyle(row.type);
-
-              return (
-                <div
-                  key={row.id}
-                  className={`rounded-2xl border border-gray-200 p-4 ${style.row}`}
-                >
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                        Row {row.id}
-                      </p>
-                      <h4 className="mt-1 text-lg font-semibold text-gray-900">
-                        {row.assetName}
-                      </h4>
-                    </div>
-
-                    <div className={`flex items-center gap-2 text-sm ${style.text}`}>
-                      {style.icon}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                        Serial Number
-                      </p>
-                      <p
-                        className={`mt-1 text-sm ${
-                          row.serialNumber
-                            ? "text-gray-700"
-                            : "text-gray-400"
-                        } ${row.serialNumber === "INVALID-SN76531" ? "text-red-600" : ""}`}
-                      >
-                        {row.serialNumber || "—"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                        Model
-                      </p>
-                      <p className="mt-1 text-sm text-gray-700">{row.model || "—"}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                        Category
-                      </p>
-                      <p className="mt-1 text-sm text-gray-700">{row.category}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                        Location
-                      </p>
-                      <p className="mt-1 text-sm text-gray-700">{row.location}</p>
-                    </div>
-                  </div>
-
-                  <div className={`mt-4 flex items-start gap-2 rounded-xl bg-white/70 px-3 py-3 text-sm ${style.text}`}>
-                    {style.icon}
-                    <span>{row.error}</span>
-                  </div>
-                </div>
-              );
-            })}
+        <div className="rounded-[28px] border border-red-100 bg-red-50 px-5 py-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-white p-3 text-red-600 shadow-sm">
+              <FiAlertCircle className="text-xl" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-red-700">
+                Invalid Rows
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {validationResult.summary.invalid_rows}
+              </p>
+            </div>
           </div>
+        </div>
 
-          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-gray-500">Showing 6 of 200 rows</p>
-
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-400"
-              >
-                <FiChevronLeft size={16} />
-              </button>
-
-              <button
-                type="button"
-                className="flex h-10 min-w-[40px] items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700"
-              >
-                1
-              </button>
-
-              <button
-                type="button"
-                className="flex h-10 min-w-[40px] items-center justify-center rounded-lg bg-blue-50 px-3 text-sm font-medium text-blue-600"
-              >
-                2
-              </button>
-
-              <button
-                type="button"
-                className="flex h-10 min-w-[40px] items-center justify-center rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700"
-              >
-                3
-              </button>
-
-              <button
-                type="button"
-                className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500"
-              >
-                <FiChevronRight size={16} />
-              </button>
+        <div className="rounded-[28px] border border-amber-100 bg-amber-50 px-5 py-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-white p-3 text-amber-600 shadow-sm">
+              <FiClock className="text-xl" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-amber-700">
+                Duplicate Serials
+              </p>
+              <p className="mt-1 text-2xl font-semibold text-gray-900">
+                {validationResult.summary.duplicate_rows}
+              </p>
             </div>
           </div>
         </div>
       </div>
+
+      <div className="rounded-[28px] border border-gray-100 bg-white">
+        <div className="flex flex-col gap-4 border-b border-gray-100 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+              <FiShield className="text-xl" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Validation Preview
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Review the preview rows and fix any spreadsheet issues before import.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveFilter("all")}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                activeFilter === "all"
+                  ? "bg-blue-600 text-white"
+                  : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter("valid")}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                activeFilter === "valid"
+                  ? "bg-green-600 text-white"
+                  : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Valid
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveFilter("invalid")}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
+                activeFilter === "invalid"
+                  ? "bg-red-600 text-white"
+                  : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Invalid
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 px-4 py-5 sm:px-6">
+          {filteredRows.length === 0 ? (
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+              No rows available for this filter.
+            </div>
+          ) : (
+            filteredRows.map((row) => (
+              <div
+                key={row.row_number}
+                className={`rounded-[24px] border px-4 py-4 sm:px-5 ${
+                  row.is_valid
+                    ? "border-green-100 bg-green-50/50"
+                    : "border-red-100 bg-red-50/50"
+                }`}
+              >
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`rounded-2xl p-3 ${
+                        row.is_valid
+                          ? "bg-white text-green-600"
+                          : "bg-white text-red-600"
+                      }`}
+                    >
+                      {row.is_valid ? (
+                        <FiCheckCircle className="text-lg" />
+                      ) : (
+                        <FiAlertCircle className="text-lg" />
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        Row {row.row_number}
+                      </p>
+                      <p
+                        className={`mt-1 text-xs font-medium ${
+                          row.is_valid ? "text-green-700" : "text-red-700"
+                        }`}
+                      >
+                        {row.is_valid ? "Ready to import" : "Needs attention"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {renderRowFields(row)}
+
+                {!row.is_valid && row.errors.length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-red-200 bg-white px-4 py-4">
+                    <p className="text-sm font-semibold text-red-700">
+                      Issues found
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {row.errors.map((issue, index) => (
+                        <div
+                          key={`${row.row_number}-${index}`}
+                          className="flex items-start gap-2 text-sm text-red-700"
+                        >
+                          <FiAlertCircle className="mt-0.5 shrink-0" />
+                          <span>{issue}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {hasInvalidRows && (
+        <div className="rounded-[28px] border border-amber-200 bg-amber-50 px-5 py-5">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-white p-3 text-amber-600 shadow-sm">
+              <FiAlertCircle className="text-xl" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-amber-800">
+                Import is not ready yet
+              </h3>
+              <p className="mt-1 text-sm text-amber-700">
+                Some rows failed validation. Fix the spreadsheet issues and re-upload or remap before continuing.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!hasInvalidRows && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={isContinuing}
+            className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isContinuing ? (
+              <>
+                <FiLoader className="animate-spin" />
+                Continuing...
+              </>
+            ) : (
+              <>
+                Continue to Import
+                <FaArrowRight size={12} />
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

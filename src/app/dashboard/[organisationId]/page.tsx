@@ -115,7 +115,7 @@ export default function OrganisationDashboard(): JSX.Element {
       try {
         // Replace this endpoint with your real backend endpoint if different.
         const response = await apiFetch(
-          `/api/accounts/organisations/${organisationId}/dashboard/`,
+          `/api/accounts/my-organisations/`,
           {
             method: "GET",
           }

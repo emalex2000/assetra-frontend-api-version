@@ -156,7 +156,7 @@ export default function CreateAsset(): JSX.Element {
       setSubmitting(true);
 
       const response = await apiFetch(
-        `/api/assets/${organisationId}/assets/`,
+        `/api/assets/${organisationId}/create_asset/`,
         {
           method: "POST",
           body: JSON.stringify({

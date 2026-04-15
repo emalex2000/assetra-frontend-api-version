@@ -1,288 +1,376 @@
 "use client";
 
-import { FiArrowRight, FiArrowLeft, FiCheckCircle, FiFileText } from "react-icons/fi";
-import { HiOutlineCloudUpload } from "react-icons/hi";
-import { MdOutlineWarningAmber } from "react-icons/md";
+import { useEffect, useMemo, useState } from "react";
+import { FiAlertCircle, FiCheckCircle, FiColumns, FiLoader } from "react-icons/fi";
+import { FaArrowRight } from "react-icons/fa";
+import { apiFetch } from "../../lib/apiClient";
+import { AssetImportMapResponse, AssetImportSession, ImportFieldOption } from "@/types/import";
 
-const columnMappings = [
-  {
-    fileColumn: "Device Name",
-    mappedField: "Asset Name",
-    active: true,
-  },
-  {
-    fileColumn: "Serial",
-    mappedField: "Serial Number",
-    active: true,
-  },
-  {
-    fileColumn: "Location",
-    mappedField: "Location",
-    active: true,
-  },
-  {
-    fileColumn: "Date Purchased",
-    mappedField: "Purchase Date",
-    active: true,
-  },
-  {
-    fileColumn: "Color",
-    mappedField: "Select field...",
-    active: false,
-  },
+type MapColumnsProps = {
+  organisationId: string;
+  importSession: AssetImportSession;
+  onMapped: (data: AssetImportMapResponse) => void;
+};
+
+const FIELD_OPTIONS: ImportFieldOption[] = [
+  { value: "name", label: "Asset Name", required: true },
+  { value: "serial_number", label: "Serial Number", required: true },
+  { value: "model", label: "Model" },
+  { value: "category", label: "Category" },
+  { value: "location_country", label: "Location Country" },
 ];
 
-const dropdownOptions = [
-  "Skip this column",
-  "Asset Name",
-  "Serial Number",
-  "Location",
-  "Date Purchased",
-  "Assigned To",
-];
+const SKIP_VALUE = "__skip__";
 
-export default function MapColumns() {
+function getSuggestedField(header: string): string {
+  const normalized = header.trim().toLowerCase();
+
+  if (["device name", "asset name", "name"].includes(normalized)) {
+    return "name";
+  }
+
+  if (
+    ["serial", "serial number", "serial no", "s/n", "sn"].includes(normalized)
+  ) {
+    return "serial_number";
+  }
+
+  if (["model", "device model"].includes(normalized)) {
+    return "model";
+  }
+
+  if (["category", "device category", "asset category"].includes(normalized)) {
+    return "category";
+  }
+
+  if (
+    ["country", "location", "location country", "asset location"].includes(
+      normalized
+    )
+  ) {
+    return "location_country";
+  }
+
+  return SKIP_VALUE;
+}
+
+export default function MapColumns({
+  organisationId,
+  importSession,
+  onMapped,
+}: MapColumnsProps) {
+  const [mappings, setMappings] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const initialMappings: Record<string, string> = {};
+
+    importSession.headers.forEach((header) => {
+      initialMappings[header] = getSuggestedField(header);
+    });
+
+    setMappings(initialMappings);
+  }, [importSession.headers]);
+
+  const selectedTargetFields = useMemo(() => {
+    return Object.values(mappings).filter((value) => value !== SKIP_VALUE);
+  }, [mappings]);
+
+  const duplicateSelections = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    selectedTargetFields.forEach((field) => {
+      counts[field] = (counts[field] || 0) + 1;
+    });
+
+    return Object.entries(counts)
+      .filter(([, count]) => count > 1)
+      .map(([field]) => field);
+  }, [selectedTargetFields]);
+
+  const missingRequiredFields = useMemo(() => {
+    return FIELD_OPTIONS.filter((field) => field.required).filter(
+      (field) => !selectedTargetFields.includes(field.value)
+    );
+  }, [selectedTargetFields]);
+
+  const canContinue =
+    duplicateSelections.length === 0 && missingRequiredFields.length === 0;
+
+  const handleMappingChange = (sourceColumn: string, value: string) => {
+    setMappings((prev) => ({
+      ...prev,
+      [sourceColumn]: value,
+    }));
+
+    setError("");
+  };
+
+  const buildPayload = () => {
+    const payloadMappings: Record<string, string | null> = {};
+
+    Object.entries(mappings).forEach(([sourceColumn, targetField]) => {
+      payloadMappings[sourceColumn] =
+        targetField === SKIP_VALUE ? null : targetField;
+    });
+
+    return {
+      mappings: payloadMappings,
+    };
+  };
+
+  const handleSubmit = async () => {
+    if (!canContinue) {
+      setError("Please fix duplicate mappings and map all required fields.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError("");
+
+      const response = await apiFetch(
+        `/api/assets/${organisationId}/imports/${importSession.import_id}/map/`,
+        {
+          method: "POST",
+          body: JSON.stringify(buildPayload()),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const detail =
+          data?.detail ||
+          data?.mappings?.[0] ||
+          data?.message ||
+          "Column mapping failed.";
+        throw new Error(detail);
+      }
+
+      onMapped(data as AssetImportMapResponse);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Column mapping failed.";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getFieldLabel = (value: string) => {
+    return FIELD_OPTIONS.find((field) => field.value === value)?.label || value;
+  };
+
   return (
-    <div className="w-full">
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.8fr_0.8fr]">
-        {/* Left Section */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
-          {/* Header */}
-          <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">Map Columns</h3>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-500">
-                Your file has columns that match the asset fields below.
-                <br className="hidden sm:block" />
-                Please map any unmapped fields to proceed. Only mapped fields will
-                be imported.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              className="inline-flex w-full items-center justify-center rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50 sm:w-auto"
-            >
-              Download Sample CSV
-            </button>
-          </div>
-
-          {/* File Card */}
-          <div className="mt-6 overflow-hidden rounded-2xl border border-gray-200">
-            <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3">
-              <FiFileText className="text-gray-400" size={18} />
-              <span className="text-sm font-medium text-gray-700">assets.xlsx</span>
-            </div>
-
-            {/* Desktop Table */}
-            <div className="hidden md:block">
-              <div className="grid grid-cols-[1fr_40px_1.2fr] border-b border-gray-200 bg-gray-50">
-                <div className="px-5 py-3 text-sm font-semibold text-gray-700">
-                  File Columns
-                </div>
-                <div />
-                <div className="border-l border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700">
-                  Map to Asset Fields
-                </div>
-              </div>
-
-              {columnMappings.map((item, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-[1fr_40px_1.2fr] items-center border-b border-gray-100 last:border-b-0"
-                >
-                  <div className="px-5 py-4 text-sm font-medium text-gray-800">
-                    {item.fileColumn}
-                  </div>
-
-                  <div className="flex justify-center text-gray-300">
-                    <FiArrowRight size={18} />
-                  </div>
-
-                  <div className="border-l border-gray-100 px-4 py-3">
-                    <div
-                      className={`flex h-11 items-center justify-between rounded-lg border px-4 text-sm ${
-                        item.active
-                          ? "border-blue-100 bg-blue-50 text-gray-800"
-                          : "border-gray-200 bg-white text-gray-400"
-                      }`}
-                    >
-                      <span>{item.mappedField}</span>
-                      <span className="text-xs">▼</span>
-                    </div>
-
-                    {/* Mock open dropdown for last row */}
-                    {item.fileColumn === "Color" && (
-                      <div className="mt-2 w-full rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
-                        {dropdownOptions.map((option, optionIndex) => (
-                          <div
-                            key={optionIndex}
-                            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${
-                              option === "Asset Name"
-                                ? "bg-blue-50 text-gray-900"
-                                : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            {option === "Skip this column" ? (
-                              <span className="font-medium">{option}</span>
-                            ) : (
-                              <>
-                                <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                                <span>{option}</span>
-                              </>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Mobile Cards */}
-            <div className="md:hidden">
-              {columnMappings.map((item, index) => (
-                <div
-                  key={index}
-                  className="border-b border-gray-100 p-4 last:border-b-0"
-                >
-                  <div className="mb-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                      File Column
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-gray-800">
-                      {item.fileColumn}
-                    </p>
-                  </div>
-
-                  <div className="mb-3 flex items-center gap-2 text-gray-300">
-                    <FiArrowRight size={16} />
-                    <span className="text-xs uppercase tracking-wide">Maps to</span>
-                  </div>
-
-                  <div
-                    className={`flex h-11 items-center justify-between rounded-lg border px-4 text-sm ${
-                      item.active
-                        ? "border-blue-100 bg-blue-50 text-gray-800"
-                        : "border-gray-200 bg-white text-gray-400"
-                    }`}
-                  >
-                    <span>{item.mappedField}</span>
-                    <span className="text-xs">▼</span>
-                  </div>
-
-                  {item.fileColumn === "Color" && (
-                    <div className="mt-3 rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-                      {dropdownOptions.map((option, optionIndex) => (
-                        <div
-                          key={optionIndex}
-                          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${
-                            option === "Asset Name"
-                              ? "bg-blue-50 text-gray-900"
-                              : "text-gray-700"
-                          }`}
-                        >
-                          {option === "Skip this column" ? (
-                            <span className="font-medium">{option}</span>
-                          ) : (
-                            <>
-                              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                              <span>{option}</span>
-                            </>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Unmapped Fields */}
-          <div className="mt-6 border-t border-gray-100 pt-6">
-            <h4 className="text-lg font-semibold text-gray-900">Unmapped Fields</h4>
-            <p className="mt-3 max-w-md text-sm leading-7 text-gray-500">
-              Fields that are not mapped will be skipped during the import
-              process.
+    <div className="space-y-6">
+      <div className="rounded-[28px] border border-gray-100 bg-gray-50 px-4 py-5 sm:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 sm:text-base">
+              Uploaded file
+            </p>
+            <p className="mt-1 text-sm text-gray-500">
+              {importSession.filename} · {importSession.total_rows} row
+              {importSession.total_rows === 1 ? "" : "s"}
             </p>
           </div>
 
-          
+          <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              Sheet
+            </p>
+            <p className="mt-1 text-sm font-semibold text-gray-900">
+              {importSession.sheet_name}
+            </p>
+          </div>
         </div>
+      </div>
 
-        {/* Right Section */}
-        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 shadow-sm sm:p-6">
-          <h3 className="text-xl font-semibold text-gray-900">Import Summary</h3>
-
-          <div className="mt-5 rounded-2xl border border-gray-100 bg-white p-5">
-            <div className="flex flex-col items-center text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                <HiOutlineCloudUpload size={28} />
-              </div>
-              <h4 className="mt-4 text-xl font-semibold text-gray-900">
-                File Uploaded
-              </h4>
-              <p className="mt-1 text-sm text-gray-500">assets.xlsx</p>
+      <div className="rounded-[28px] border border-gray-100 bg-white">
+        <div className="border-b border-gray-100 px-4 py-5 sm:px-6">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+              <FiColumns className="text-xl" />
             </div>
-
-            <div className="my-5 border-t border-gray-100" />
 
             <div>
-              <h5 className="text-lg font-semibold text-gray-800">
-                5 Columns Detected
-              </h5>
-
-              <div className="mt-4 space-y-3">
-                {["Device Name", "Serial", "Location", "Date Purchased", "Color"].map(
-                  (item) => (
-                    <div
-                      key={item}
-                      className="flex items-center gap-3 text-sm text-gray-600"
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                      <span>{item}</span>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-
-            <div className="my-5 border-t border-gray-100" />
-
-            <div>
-              <h5 className="text-lg font-semibold text-gray-800">
-                Mapping Overview
-              </h5>
-
-              <div className="mt-4 space-y-3">
-                {["Asset Name", "Serial Number", "Location", "Date Purchased"].map(
-                  (item) => (
-                    <div
-                      key={item}
-                      className="flex items-center gap-3 text-sm text-gray-600"
-                    >
-                      <FiCheckCircle className="text-blue-500" size={16} />
-                      <span>{item}</span>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-
-            <div className="my-5 border-t border-gray-100" />
-
-            <div className="flex items-start gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              <MdOutlineWarningAmber className="mt-0.5 shrink-0" size={18} />
-              <p>
-                1 column skipped
-                <br />
-                <span className="font-medium">(Color)</span>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Map spreadsheet columns
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Match each file column to the correct backend field. Unrelated columns can be skipped, because not every spreadsheet needs to be a chaotic autobiography.
               </p>
             </div>
           </div>
         </div>
+
+        <div className="hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] gap-4 border-b border-gray-100 bg-gray-50 px-6 py-4 text-sm font-semibold text-gray-700 md:grid">
+          <div>Spreadsheet Column</div>
+          <div>Map To</div>
+        </div>
+
+        <div className="divide-y divide-gray-100">
+          {importSession.headers.map((header) => {
+            const selectedValue = mappings[header] || SKIP_VALUE;
+            const hasDuplicate =
+              selectedValue !== SKIP_VALUE &&
+              duplicateSelections.includes(selectedValue);
+
+            return (
+              <div
+                key={header}
+                className="grid grid-cols-1 gap-3 px-4 py-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] md:gap-4 md:px-6"
+              >
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400 md:hidden">
+                    Spreadsheet Column
+                  </p>
+                  <div className="mt-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">
+                    {header}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400 md:hidden">
+                    Map To
+                  </p>
+                  <select
+                    value={selectedValue}
+                    onChange={(event) =>
+                      handleMappingChange(header, event.target.value)
+                    }
+                    className={`mt-1 w-full rounded-2xl border bg-white px-4 py-3 text-sm text-gray-900 outline-none transition ${
+                      hasDuplicate
+                        ? "border-red-300 ring-2 ring-red-100"
+                        : "border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    }`}
+                  >
+                    <option value={SKIP_VALUE}>Skip this column</option>
+                    {FIELD_OPTIONS.map((field) => (
+                      <option key={field.value} value={field.value}>
+                        {field.label}
+                        {field.required ? " *" : ""}
+                      </option>
+                    ))}
+                  </select>
+
+                  {hasDuplicate && (
+                    <p className="mt-2 text-xs text-red-600">
+                      This field is already mapped elsewhere.
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-[28px] border border-gray-100 bg-white px-4 py-5 sm:px-6">
+          <p className="text-sm font-semibold text-gray-900">
+            Required fields
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {FIELD_OPTIONS.filter((field) => field.required).map((field) => {
+              const isMapped = selectedTargetFields.includes(field.value);
+
+              return (
+                <div
+                  key={field.value}
+                  className="flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {field.label}
+                    </p>
+                    <p className="text-xs text-gray-500">Required</p>
+                  </div>
+
+                  {isMapped ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                      <FiCheckCircle />
+                      Mapped
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
+                      <FiAlertCircle />
+                      Missing
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-gray-100 bg-white px-4 py-5 sm:px-6">
+          <p className="text-sm font-semibold text-gray-900">
+            Mapping summary
+          </p>
+
+          <div className="mt-4 space-y-3">
+            {Object.entries(mappings).map(([sourceColumn, targetField]) => (
+              <div
+                key={sourceColumn}
+                className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <p className="truncate text-sm font-medium text-gray-900">
+                  {sourceColumn}
+                </p>
+                <span className="inline-flex self-start rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 shadow-sm">
+                  {targetField === SKIP_VALUE
+                    ? "Skipped"
+                    : getFieldLabel(targetField)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {missingRequiredFields.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Missing required mapping:{" "}
+          {missingRequiredFields.map((field) => field.label).join(", ")}
+        </div>
+      )}
+
+      {duplicateSelections.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Duplicate field mapping detected:{" "}
+          {duplicateSelections.map((field) => getFieldLabel(field)).join(", ")}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSubmitting || !canContinue}
+          className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting ? (
+            <>
+              <FiLoader className="animate-spin" />
+              Saving mappings...
+            </>
+          ) : (
+            <>
+              Continue to Preview
+              <FaArrowRight size={12} />
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
