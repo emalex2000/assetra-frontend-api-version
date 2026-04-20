@@ -9,6 +9,7 @@ import {
   FiUploadCloud,
 } from "react-icons/fi";
 import { FaArrowLeft } from "react-icons/fa";
+
 import {
   AssetImportCommitResponse,
   AssetImportMapResponse,
@@ -17,9 +18,10 @@ import {
   ImportStep,
 } from "@/types/import";
 import UploadFile from "../../../../../../components/dashboard/UploadFile";
-import MapColumns from "../../../../../../components/dashboard/MapColumns";
 import PreviewAndValidate from "../../../../../../components/dashboard/Preview";
 import ImportComplete from "../../../../../../components/dashboard/ImportComplete";
+import MapColumns from "../../../../../../components/dashboard/MapColumns";
+import router from "next/router";
 
 const steps = [
   {
@@ -70,6 +72,10 @@ export default function ImportAssetPage() {
     setCurrentStep(2);
   };
 
+  const dashboardHref = `/dashboard/${organisationId}`;
+
+  const canSaveProgress = currentStep >= 2 && !!importSession;
+
   const handleMapped = (data: AssetImportMapResponse) => {
     setMappedSession(data);
     setValidatedSession(null);
@@ -93,6 +99,35 @@ export default function ImportAssetPage() {
   };
 
   return (
+  <>
+  
+<div className="sticky bottom-0 mt-6 flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+  <div className="text-sm text-gray-600">
+    {importSession
+      ? `Current file: ${importSession.filename}`
+      : "No import session yet"}
+  </div>
+
+  <div className="flex flex-col gap-2 sm:flex-row">
+    <button
+      type="button"
+      onClick={() => router.push(dashboardHref)}
+      className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+    >
+      Skip to Dashboard
+    </button>
+
+    <button
+      type="button"
+      disabled={!canSaveProgress}
+      onClick={() => router.push(dashboardHref)}
+      className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Save and Exit
+    </button>
+  </div>
+</div>
+
     <div className="min-h-screen bg-gray-50 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 sm:mb-8">
@@ -252,5 +287,6 @@ export default function ImportAssetPage() {
         </div>
       </div>
     </div>
+  </>
   );
 }

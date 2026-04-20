@@ -132,8 +132,7 @@ export default function Dashboard() {
             icon={<FiUser className="text-gray-400" size={18} />}
           />
         </div>
-
-        <OrganisationsSection organisations={organisations} loading={loading} />
+        <OrganisationsSection organisations={organisations}  />
       </DashboardNav>
     </div>
   );
