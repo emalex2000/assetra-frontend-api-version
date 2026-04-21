@@ -5,6 +5,7 @@ export type OrganisationSearchResult = {
   country?: string;
   company_logo?: string | null;
 };
+export type JoinRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED"
 
 export type PendingJoinRequest = {
   request_id: string;
@@ -12,13 +13,15 @@ export type PendingJoinRequest = {
   email: string;
   phone_number?: string | null;
   message?: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  status: JoinRequestStatus;
   created_at: string;
 };
 
 export type ReviewJoinRequestPayload = {
   action: "approve" | "reject";
 };
+
+export type ReviewJoinRequestAction = "APPROVED" | "REJECTED";
 
 export type Organisation = {
   company_id: string;

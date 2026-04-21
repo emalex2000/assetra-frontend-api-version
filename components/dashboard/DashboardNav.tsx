@@ -36,7 +36,7 @@ export default function DashboardNav({
   const topLinks: NavItem[] = [
     { name: "Dashboard", icon: FiHome, href: "/dashboard" },
     { name: "Organisations", icon: FiUsers, href: "/dashboard/organisations" },
-    { name: "Settings", icon: FiMonitor, href: "/dashboard/settings" },
+    { name: "Settings", icon: FiMonitor, href: "/dashboard/assets" },
     { name: "Notification", icon: FiBell, href: "/dashboard/notifications" },
     {
       name: "Create Organisation",

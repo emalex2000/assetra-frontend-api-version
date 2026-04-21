@@ -53,17 +53,17 @@ export default function SideBar({
       href: `${baseDashboardPath}/members`,
     },
     {
-      name: "Device Management",
+      name: "Asset Management",
       icon: FiMonitor,
       href: `${baseDashboardPath}/devices`,
     },
     {
-      name: "Device Assignment",
+      name: "Asset Assignment",
       icon: FiRepeat,
       href: `${baseDashboardPath}/assignments`,
     },
     {
-      name: "Device History",
+      name: "Asset History",
       icon: FiClock,
       href: `${baseDashboardPath}/history`,
     },
@@ -78,7 +78,7 @@ export default function SideBar({
       href: `${baseDashboardPath}/notifications`,
     },
     {
-      name: "Organizational Setting",
+      name: "Organization Setting",
       icon: FiSettings,
       href: `${baseDashboardPath}/settings`,
     },

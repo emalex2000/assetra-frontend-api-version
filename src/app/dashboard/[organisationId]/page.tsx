@@ -1,16 +1,17 @@
 "use client";
 
 import { JSX, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import SideBar from "../../../../components/dashboard/LayoutNav";
 import OverviewCard from "../../../../components/dashboard/OverviewCard";
 import { FiUser, FiCheckCircle, FiMonitor, FiBox } from "react-icons/fi";
 import StatusOverviewCard from "../../../../components/dashboard/StatusOverview";
 import QuickActionPanel from "../../../../components/dashboard/QuickActionPanel";
 import RecentlyAssignedDevicesTable from "../../../../components/dashboard/DashboardTable";
-import DevicesDamagedCard from "../../../../components/dashboard/DevicesDamagedCard";
+import DevicesDamagedCard, {
+  type DamagedDeviceData,
+} from "../../../../components/dashboard/DevicesDamagedCard";
 import { apiFetch } from "../../../../lib/apiClient";
-import router from "next/router";
 
 type StatusTabKey =
   | "availableDevices"
@@ -41,39 +42,24 @@ type AssignedDeviceRow = {
   status: "Assigned";
 };
 
-type DamagedDataItem = {
-  month: string;
-  value: number;
-  color: string;
+
+type OrganisationListItem = {
+  company_id: string;
+  name: string;
+  industry?: string;
+  company_size?: number | string;
+  country?: string;
+  created_at?: string;
+  company_logo?: string | null;
+  membersCount?: number;
+  assetsCount?: number;
 };
 
-type OrganisationDashboardResponse = {
-  stats?: {
-    totalDevices?: number;
-    assignedDevices?: number;
-    availableDevices?: number;
-    organisationMembers?: number;
-  };
-  statusOverview?: Array<{
-    label?: string;
-    availableDevices?: number;
-    assignedDevices?: number;
-    organizationMembers?: number;
-    totalDevices?: number;
-  }>;
-  recentlyAssignedDevices?: Array<{
-    id?: number | string;
-    device?: string;
-    assignedTo?: string;
-    location?: string;
-    assignedBy?: string;
-    date?: string;
-    status?: string;
-  }>;
-  damagedDevicesTrend?: Array<{
-    month?: string;
-    value?: number;
-  }>;
+type DashboardStats = {
+  totalDevices: number;
+  assignedDevices: number;
+  availableDevices: number;
+  organisationMembers: number;
 };
 
 const statusTabs: StatusTab[] = [
@@ -83,7 +69,7 @@ const statusTabs: StatusTab[] = [
   { key: "totalDevices", label: "Total Devices" },
 ];
 
-const defaultStats = {
+const defaultStats: DashboardStats = {
   totalDevices: 0,
   assignedDevices: 0,
   availableDevices: 0,
@@ -93,12 +79,13 @@ const defaultStats = {
 export default function OrganisationDashboard(): JSX.Element {
   const params = useParams<{ organisationId: string }>();
   const organisationId = params?.organisationId;
+  const router = useRouter();
 
-  const [stats, setStats] = useState(defaultStats);
+  const [stats, setStats] = useState<DashboardStats>(defaultStats);
   const [statusData, setStatusData] = useState<StatusDataItem[]>([]);
   const [assignedDevices, setAssignedDevices] = useState<AssignedDeviceRow[]>([]);
-  const [damagedData, setDamagedData] = useState<DamagedDataItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [damagedData, setDamagedData] = useState<DamagedDeviceData[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -113,13 +100,9 @@ export default function OrganisationDashboard(): JSX.Element {
       setError(null);
 
       try {
-        // Replace this endpoint with your real backend endpoint if different.
-        const response = await apiFetch(
-          `/api/accounts/my-organisations/`,
-          {
-            method: "GET",
-          }
-        );
+        const response = await apiFetch("/api/accounts/my-organisations/", {
+          method: "GET",
+        });
 
         if (!response.ok) {
           let message = "Failed to fetch organisation dashboard data.";
@@ -132,56 +115,44 @@ export default function OrganisationDashboard(): JSX.Element {
               errorData?.error ||
               message;
           } catch {
-            // ignore parse failure and use default message
+            // ignore parse failure
           }
 
           throw new Error(message);
         }
 
-        const data: OrganisationDashboardResponse = await response.json();
+        const organisations: OrganisationListItem[] = await response.json();
+
+        const currentOrganisation = organisations.find(
+          (item) => item.company_id === organisationId
+        );
+
+        if (!currentOrganisation) {
+          throw new Error("Organisation not found in your accessible organisations.");
+        }
+
+        const totalDevices = currentOrganisation.assetsCount ?? 0;
+        const organisationMembers = currentOrganisation.membersCount ?? 0;
 
         setStats({
-          totalDevices: data?.stats?.totalDevices ?? 0,
-          assignedDevices: data?.stats?.assignedDevices ?? 0,
-          availableDevices: data?.stats?.availableDevices ?? 0,
-          organisationMembers: data?.stats?.organisationMembers ?? 0,
+          totalDevices,
+          assignedDevices: 0,
+          availableDevices: totalDevices,
+          organisationMembers,
         });
 
-        setStatusData(
-          Array.isArray(data?.statusOverview)
-            ? data.statusOverview.map((item, index) => ({
-                label: item?.label || `Item ${index + 1}`,
-                availableDevices: item?.availableDevices ?? 0,
-                assignedDevices: item?.assignedDevices ?? 0,
-                organizationMembers: item?.organizationMembers ?? 0,
-                totalDevices: item?.totalDevices ?? 0,
-              }))
-            : []
-        );
+        setStatusData([
+          {
+            label: currentOrganisation.name || "Organisation",
+            availableDevices: totalDevices,
+            assignedDevices: 0,
+            organizationMembers: organisationMembers,
+            totalDevices,
+          },
+        ]);
 
-        setAssignedDevices(
-          Array.isArray(data?.recentlyAssignedDevices)
-            ? data.recentlyAssignedDevices.map((item, index) => ({
-                id: item?.id ?? index + 1,
-                device: item?.device || "—",
-                assignedTo: item?.assignedTo || "—",
-                location: item?.location || "—",
-                assignedBy: item?.assignedBy || "—",
-                date: item?.date || "—",
-                status: "Assigned",
-              }))
-            : []
-        );
-
-        setDamagedData(
-          Array.isArray(data?.damagedDevicesTrend)
-            ? data.damagedDevicesTrend.map((item, index) => ({
-                month: item?.month || `M${index + 1}`,
-                value: item?.value ?? 0,
-                color: index % 2 === 0 ? "black" : "blue",
-              }))
-            : []
-        );
+        setAssignedDevices([]);
+        setDamagedData([]);
       } catch (err) {
         const message =
           err instanceof Error
@@ -189,7 +160,6 @@ export default function OrganisationDashboard(): JSX.Element {
             : "Something went wrong while loading dashboard data.";
 
         setError(message);
-
         setStats(defaultStats);
         setStatusData([]);
         setAssignedDevices([]);
@@ -202,10 +172,8 @@ export default function OrganisationDashboard(): JSX.Element {
     fetchDashboardData();
   }, [organisationId]);
 
-  const safeStatusData = useMemo<StatusDataItem[]>(() => {
-    if (statusData.length > 0) {
-      return statusData;
-    }
+  const safeStatusData = useMemo(() => {
+    if (statusData.length > 0) return statusData;
 
     return [
       {
@@ -218,21 +186,17 @@ export default function OrganisationDashboard(): JSX.Element {
     ];
   }, [statusData]);
 
-  const safeDamagedData = useMemo<DamagedDataItem[]>(() => {
-    if (damagedData.length > 0) {
-      return damagedData;
-    }
+  const safeDamagedData = useMemo(() => {
+    if (damagedData.length > 0) return damagedData;
 
-    return [
-      { month: "No Data", value: 0, color: "black" },
-    ];
+    return [{ month: "No Data", value: 0, color: "black" }];
   }, [damagedData]);
 
   return (
     <SideBar>
       <div className="flex flex-col gap-4">
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
             {error}
           </div>
         )}
@@ -240,74 +204,76 @@ export default function OrganisationDashboard(): JSX.Element {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <OverviewCard
             title="Total Devices"
-            amount={stats.totalDevices ?? 0}
+            amount={stats.totalDevices}
             description="All registered electronic equipment within the organization."
             icon={<FiMonitor className="text-gray-400" size={18} />}
           />
 
           <OverviewCard
             title="Assigned Devices"
-            amount={stats.assignedDevices ?? 0}
+            amount={stats.assignedDevices}
             description="Devices currently in use by organization members."
             icon={<FiCheckCircle className="text-gray-400" size={18} />}
           />
 
           <OverviewCard
             title="Available Devices"
-            amount={stats.availableDevices ?? 0}
+            amount={stats.availableDevices}
             description="Devices currently available for assignment."
             icon={<FiBox className="text-gray-400" size={18} />}
           />
 
           <OverviewCard
             title="Organisation Members"
-            amount={stats.organisationMembers ?? 0}
+            amount={stats.organisationMembers}
             description="Members currently managing or using equipment."
             icon={<FiUser className="text-gray-400" size={18} />}
           />
         </div>
 
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
-          <div className="min-w-0 flex-1">
+          <div className="w-full xl:flex-1">
             <StatusOverviewCard
               title="Device Status Overview"
               tabs={statusTabs}
               data={safeStatusData}
-              defaultTab="assignedDevices"
+              defaultTab="totalDevices"
             />
           </div>
 
           <QuickActionPanel
-            organisationId={params.organisationId}
+            organisationId={organisationId}
             actions={[
               { title: "Register Device" },
-              { title: "Assign Device", onClick: () => router.push(`/dashboard/${params.organisationId}/assign-device`) },
-              { title: "View Reports", onClick: () => router.push(`/dashboard/${params.organisationId}/reports`) },
-              { title: "Manage Members", onClick: () => router.push(`/dashboard/${params.organisationId}/members`) },
+              {
+                title: "Assign Device",
+                onClick: () => router.push(`/dashboard/${organisationId}/assign-device`),
+              },
+              {
+                title: "View Reports",
+                onClick: () => router.push(`/dashboard/${organisationId}/reports`),
+              },
+              {
+                title: "Manage Members",
+                onClick: () => router.push(`/dashboard/${organisationId}/members`),
+              },
             ]}
           />
         </div>
 
-        <div className="flex w-full flex-col gap-5 bg-gray-50 xl:flex-row">
-          <div className="min-w-0 flex-1">
-            <RecentlyAssignedDevicesTable data={assignedDevices} />
-          </div>
-
+        <div className="bg-gray-50 w-full flex flex-col gap-5 xl:flex-row">
+          <RecentlyAssignedDevicesTable data={assignedDevices} />
           <div>
             <DevicesDamagedCard
               data={safeDamagedData}
-              highlightedIndex={
-                safeDamagedData.length > 1 ? Math.min(5, safeDamagedData.length - 1) : 0
-              }
-              maxValue={
-                Math.max(...safeDamagedData.map((item) => item.value), 0) || 25
-              }
+              highlightedIndex={0}
+              maxValue={25}
             />
           </div>
         </div>
 
         {loading && (
-          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">
+          <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
             Loading dashboard data...
           </div>
         )}

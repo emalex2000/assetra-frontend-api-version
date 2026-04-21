@@ -1,9 +1,8 @@
-type DamagedDeviceData = {
+export type DamagedDeviceData = {
   month: string;
   value: number;
   color?: "blue" | "black";
 };
-
 type DevicesDamagedCardProps = {
   title?: string;
   data: DamagedDeviceData[];

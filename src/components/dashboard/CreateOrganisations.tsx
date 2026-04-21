@@ -5,7 +5,7 @@ import { FiPlusCircle, FiArrowRight } from "react-icons/fi";
 
 export default function CreateOrganisationCard() {
   return (
-    <div className="rounded-3xl w-[500px] border border-blue-300 bg-white p-6 shadow-sm">
+    <div className="rounded-3xl w-125 border border-blue-300 bg-white p-6 shadow-sm">
       <div className="flex h-full flex-col justify-between">
         <div>
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
