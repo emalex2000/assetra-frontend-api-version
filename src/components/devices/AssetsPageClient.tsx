@@ -8,8 +8,6 @@ import CategoriesPanel from "./CategoriesPanel";
 import CreateCategoryModal from "./CreateCategoryModal";
 import CreateDeviceModal from "./CreateAssetModal";
 
-
-
 type Props = {
   organisationId: string;
 };
@@ -31,7 +29,7 @@ export default function DevicesPageClient({ organisationId }: Props) {
   } = useDevicesPage(organisationId);
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 overflow-hidden">
       <DevicesToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -39,8 +37,8 @@ export default function DevicesPageClient({ organisationId }: Props) {
         onOpenDeviceModal={() => setShowDeviceModal(true)}
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
-        <div>
+      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="min-w-0">
           {loading ? (
             <div className="rounded-3xl border border-gray-200 bg-white p-6">
               Loading devices...
@@ -54,13 +52,17 @@ export default function DevicesPageClient({ organisationId }: Props) {
           ) : (
             <DevicesTable devices={filteredDevices} />
           )}
-        </div>
+        </section>
 
-        <CategoriesPanel
-          categories={categories}
-          onAddCategory={() => setShowCategoryModal(true)} onDeleteCategory={function (categoryId: string): Promise<void> | void {
-            throw new Error("Function not implemented.");
-          } }        />
+        <aside className="min-w-0">
+          <CategoriesPanel
+            categories={categories}
+            onAddCategory={() => setShowCategoryModal(true)}
+            onDeleteCategory={() => {
+              console.warn("Delete category endpoint not wired yet.");
+            }}
+          />
+        </aside>
       </div>
 
       <CreateCategoryModal

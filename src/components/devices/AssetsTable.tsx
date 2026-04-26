@@ -1,8 +1,14 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import { Device } from "@/types/asset";
 
 type Props = {
   devices: Device[];
 };
+
+const ITEMS_PER_PAGE = 8;
 
 function truncateText(value: string, maxLength: number): string {
   if (!value) return "—";
@@ -63,7 +69,7 @@ function InfoPill({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${className}`}
+      className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${className}`}
     >
       {label || "—"}
     </span>
@@ -71,10 +77,29 @@ function InfoPill({
 }
 
 export default function DevicesTable({ devices }: Props) {
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(devices.length / ITEMS_PER_PAGE));
+
+  const currentDevices = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return devices.slice(start, start + ITEMS_PER_PAGE);
+  }, [devices, page]);
+
+  const startItem = devices.length === 0 ? 0 : (page - 1) * ITEMS_PER_PAGE + 1;
+  const endItem = Math.min(page * ITEMS_PER_PAGE, devices.length);
+
+  const goToPreviousPage = () => {
+    setPage((current) => Math.max(1, current - 1));
+  };
+
+  const goToNextPage = () => {
+    setPage((current) => Math.min(totalPages, current + 1));
+  };
+
   return (
-    <div className="rounded-[28px] border border-gray-200 bg-white shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4 sm:px-6">
+    <div className="flex min-h-[360px] max-h-[640px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div>
           <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
             Device Inventory
@@ -84,186 +109,186 @@ export default function DevicesTable({ devices }: Props) {
           </p>
         </div>
 
-        <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 sm:text-sm">
+        <div className="w-fit rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 sm:text-sm">
           {devices.length} {devices.length === 1 ? "device" : "devices"}
         </div>
       </div>
 
-      {/* Desktop / Tablet Table */}
-      <div className="hidden overflow-x-auto lg:block">
-        <div className="w-full px-4 py-4 sm:px-5">
-          <table className="w-full table-fixed border-separate border-spacing-y-3">
+      <div className="hidden lg:block">
+        <div className="max-w-full overflow-x-auto px-4 py-4 sm:px-5">
+          <table className="min-w-[920px] table-fixed border-separate border-spacing-y-3">
             <thead>
               <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-2 py-1">Asset Name</th>
-                <th className="px-2 py-1">Asset Tag</th>
-                <th className="px-2 py-1">Category</th>
-                <th className="px-2 py-1">Assigned To</th>
-                <th className="px-2 py-1">Status</th>
-                <th className="px-2 py-1">Condition</th>
+                <th className="w-[220px] px-3 py-1">Asset Name</th>
+                <th className="w-[160px] px-3 py-1">Asset Tag</th>
+                <th className="w-[170px] px-3 py-1">Category</th>
+                <th className="w-[190px] px-3 py-1">Assigned To</th>
+                <th className="w-[120px] px-3 py-1">Status</th>
+                <th className="w-[120px] px-3 py-1">Condition</th>
               </tr>
             </thead>
 
             <tbody>
-              {devices.length > 0 ? (
-                devices.map((device) => (
-                  <tr
-                    key={device.id}
-                    className="bg-gray-50 text-sm text-gray-700 transition hover:bg-gray-100/80"
-                  >
-                    <td className="rounded-l-2xl px-2 py-2 align-middle">
-                      <div className="max-w-[180px]">
-                        <p
-                          className="truncate font-semibold text-gray-900"
-                          title={device.asset_name || "—"}
-                        >
-                          {truncateText(device.asset_name || "—", 24)}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          ID: {truncateText(device.id || "—", 10)}
-                        </p>
-                      </div>
-                    </td>
-
-                    <td className="px-2 py-2 align-middle">
-                      <span
-                        className="w-full truncate text-sm text-gray-700"
-                        title={device.asset_tag || "—"}
+              {currentDevices.map((device) => (
+                <tr
+                  key={device.id}
+                  className="bg-gray-50 text-sm text-gray-700 transition hover:bg-gray-100/80"
+                >
+                  <td className="rounded-l-2xl px-3 py-3 align-middle">
+                    <div className="max-w-[200px]">
+                      <p
+                        className="truncate font-semibold text-gray-900"
+                        title={device.asset_name || "—"}
                       >
-                        {truncateText(device.asset_tag || "—", 8)}
-                      </span>
-                    </td>
-
-                    <td className="px-2 py-2 align-middle">
-                      <span
-                        className="inline-block max-w-[140px] truncate text-sm text-gray-700"
-                        title={device.category_name || "—"}
-                      >
-                        {truncateText(device.category_name || "—", 8)}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 align-middle">
-                      <span
-                        className="inline-block max-w-[160px] truncate text-sm text-gray-700"
-                        title={device.assigned_to || "—"}
-                      >
-                        {truncateText(device.assigned_to || "—", 8)}
-                      </span>
-                    </td>
-
-                    <td className="px-2 py-2 align-middle">
-                      <InfoPill
-                        label={device.status || "—"}
-                        className={getStatusStyles(device.status)}
-                      />
-                    </td>
-
-                    <td className="rounded-r-2xl px-2 py-2 align-middle">
-                      <InfoPill
-                        label={device.condition || "—"}
-                        className={getConditionStyles(device.condition)}
-                      />
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center">
-                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 py-10">
-                      <p className="text-sm font-medium text-gray-700">
-                        No devices found
+                        {truncateText(device.asset_name || "—", 28)}
                       </p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Devices you add will appear here.
+                      <p className="mt-1 truncate text-xs text-gray-500">
+                        ID: {truncateText(device.id || "—", 14)}
                       </p>
                     </div>
                   </td>
+
+                  <td className="px-3 py-3 align-middle">
+                    <span
+                      className="block max-w-[140px] truncate text-sm text-gray-700"
+                      title={device.asset_tag || "—"}
+                    >
+                      {device.asset_tag || "—"}
+                    </span>
+                  </td>
+
+                  <td className="px-3 py-3 align-middle">
+                    <span
+                      className="block max-w-[150px] truncate text-sm text-gray-700"
+                      title={device.category_name || "—"}
+                    >
+                      {device.category_name || "—"}
+                    </span>
+                  </td>
+
+                  <td className="px-3 py-3 align-middle">
+                    <span
+                      className="block max-w-[170px] truncate text-sm text-gray-700"
+                      title={device.assigned_to || "—"}
+                    >
+                      {device.assigned_to || "—"}
+                    </span>
+                  </td>
+
+                  <td className="px-3 py-3 align-middle">
+                    <InfoPill
+                      label={device.status || "—"}
+                      className={getStatusStyles(device.status)}
+                    />
+                  </td>
+
+                  <td className="rounded-r-2xl px-3 py-3 align-middle">
+                    <InfoPill
+                      label={device.condition || "—"}
+                      className={getConditionStyles(device.condition)}
+                    />
+                  </td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Mobile / Small Tablet Cards */}
       <div className="space-y-3 p-4 sm:p-6 lg:hidden">
-        {devices.length > 0 ? (
-          devices.map((device) => (
-            <div
-              key={device.id}
-              className="rounded-2xl border border-gray-200 bg-gray-50 p-4 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3
-                    className="truncate text-sm font-semibold text-gray-900"
-                    title={device.asset_name || "—"}
-                  >
-                    {truncateText(device.asset_name || "—", 24)}
-                  </h3>
-                  <p
-                    className="mt-1 truncate text-xs text-gray-500"
-                    title={device.asset_tag || "—"}
-                  >
-                    Tag: {truncateText(device.asset_tag || "—", 18)}
-                  </p>
-                </div>
-
-                <InfoPill
-                  label={device.status || "—"}
-                  className={getStatusStyles(device.status)}
-                />
+        {currentDevices.map((device) => (
+          <div
+            key={device.id}
+            className="rounded-2xl border border-gray-200 bg-gray-50 p-4 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3
+                  className="truncate text-sm font-semibold text-gray-900"
+                  title={device.asset_name || "—"}
+                >
+                  {truncateText(device.asset_name || "—", 24)}
+                </h3>
+                <p
+                  className="mt-1 truncate text-xs text-gray-500"
+                  title={device.asset_tag || "—"}
+                >
+                  Tag: {truncateText(device.asset_tag || "—", 18)}
+                </p>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Category
-                  </p>
-                  <p
-                    className="mt-1 truncate text-gray-700"
-                    title={device.category_name || "—"}
-                  >
-                    {truncateText(device.category_name || "—", 16)}
-                  </p>
-                </div>
+              <InfoPill
+                label={device.status || "—"}
+                className={getStatusStyles(device.status)}
+              />
+            </div>
 
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Condition
-                  </p>
-                  <div className="mt-1">
-                    <InfoPill
-                      label={device.condition || "—"}
-                      className={getConditionStyles(device.condition)}
-                    />
-                  </div>
-                </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  Category
+                </p>
+                <p className="mt-1 truncate text-gray-700">
+                  {device.category_name || "—"}
+                </p>
+              </div>
 
-                <div className="col-span-2 min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-                    Assigned To
-                  </p>
-                  <p
-                    className="mt-1 truncate text-gray-700"
-                    title={device.assigned_to || "—"}
-                  >
-                    {truncateText(device.assigned_to || "—", 26)}
-                  </p>
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  Condition
+                </p>
+                <div className="mt-1">
+                  <InfoPill
+                    label={device.condition || "—"}
+                    className={getConditionStyles(device.condition)}
+                  />
                 </div>
+              </div>
+
+              <div className="col-span-2 min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                  Assigned To
+                </p>
+                <p className="mt-1 truncate text-gray-700">
+                  {device.assigned_to || "—"}
+                </p>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center">
-            <p className="text-sm font-medium text-gray-700">No devices found</p>
-            <p className="mt-1 text-sm text-gray-500">
-              Devices you add will appear here.
-            </p>
           </div>
-        )}
+        ))}
       </div>
+
+      {devices.length > ITEMS_PER_PAGE && (
+        <div className="flex flex-col gap-3 border-t border-gray-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <p className="text-sm text-gray-500">
+            Showing {startItem}-{endItem} of {devices.length}
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPreviousPage}
+              disabled={page === 1}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FiChevronLeft size={16} />
+              Prev
+            </button>
+
+            <span className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700">
+              {page} / {totalPages}
+            </span>
+
+            <button
+              onClick={goToNextPage}
+              disabled={page === totalPages}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+              <FiChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

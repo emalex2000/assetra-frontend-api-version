@@ -1,5 +1,5 @@
 import OrganisationList from "@/components/dashboard/OrganisationsPanel";
-import DashboardNav from "../../../../components/dashboard/DashboardNav";
+import DashboardNav from "../../../components/dashboard/DashboardNav";
 import CreateOrganisationCard from "@/components/dashboard/CreateOrganisations";
 import OrganisationSearchSection from "@/components/dashboard/OrganisationSearchSection";
 

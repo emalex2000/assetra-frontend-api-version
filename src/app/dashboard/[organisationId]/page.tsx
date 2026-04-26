@@ -2,16 +2,18 @@
 
 import { JSX, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import SideBar from "../../../../components/dashboard/LayoutNav";
-import OverviewCard from "../../../../components/dashboard/OverviewCard";
+import SideBar from "../../../components/dashboard/LayoutNav";
+import OverviewCard from "../../../components/dashboard/OverviewCard";
 import { FiUser, FiCheckCircle, FiMonitor, FiBox } from "react-icons/fi";
-import StatusOverviewCard from "../../../../components/dashboard/StatusOverview";
-import QuickActionPanel from "../../../../components/dashboard/QuickActionPanel";
-import RecentlyAssignedDevicesTable from "../../../../components/dashboard/DashboardTable";
+import StatusOverviewCard from "../../../components/dashboard/StatusOverview";
+import QuickActionPanel from "../../../components/dashboard/QuickActionPanel";
+import RecentlyAssignedDevicesTable from "../../../components/dashboard/DashboardTable";
 import DevicesDamagedCard, {
   type DamagedDeviceData,
-} from "../../../../components/dashboard/DevicesDamagedCard";
-import { apiFetch } from "../../../../lib/apiClient";
+} from "../../../components/dashboard/DevicesDamagedCard";
+import { apiFetch } from "../../../lib/apiClient";
+import TitleCard from "@/components/dashboard/TitleCard";
+import { useCurrentOrganisation } from "@/hooks/useCurrentOrganisation";
 
 type StatusTabKey =
   | "availableDevices"
@@ -191,6 +193,7 @@ export default function OrganisationDashboard(): JSX.Element {
 
     return [{ month: "No Data", value: 0, color: "black" }];
   }, [damagedData]);
+  const organisation = useCurrentOrganisation();
 
   return (
     <SideBar>
@@ -200,7 +203,8 @@ export default function OrganisationDashboard(): JSX.Element {
             {error}
           </div>
         )}
-
+        <TitleCard organisationName={organisation?.name}/>
+        
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <OverviewCard
             title="Total Devices"

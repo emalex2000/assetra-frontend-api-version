@@ -30,14 +30,18 @@ export function useUserAssignments({
   const [error, setError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  const normalizedEmail = useMemo(
-    () => userEmail.trim().toLowerCase(),
-    [userEmail]
-  );
+  const normalizedEmail = useMemo(() => {
+    return userEmail.trim().toLowerCase();
+  }, [userEmail]);
+
+  const organisationsKey = useMemo(() => {
+    return organisations.map((org) => org.company_id).join("|");
+  }, [organisations]);
 
   const loadAssignments = useCallback(async () => {
     if (!enabled || !normalizedEmail || organisations.length === 0) {
       setAssignments([]);
+      setLoading(false);
       return;
     }
 
@@ -57,29 +61,35 @@ export function useUserAssignments({
         })
       );
 
-      const flattened = allAssignmentsByOrg.flat();
-
-      const mine = flattened
-        .filter(
-          (item) => item.user_email.trim().toLowerCase() === normalizedEmail
-        )
+      const mine = allAssignmentsByOrg
+        .flat()
+        .filter((item) => {
+          return item.user_email.trim().toLowerCase() === normalizedEmail;
+        })
         .sort((a, b) => {
-          const aTime = a.date_assigned ? new Date(a.date_assigned).getTime() : 0;
-          const bTime = b.date_assigned ? new Date(b.date_assigned).getTime() : 0;
+          const aTime = a.date_assigned
+            ? new Date(a.date_assigned).getTime()
+            : 0;
+
+          const bTime = b.date_assigned
+            ? new Date(b.date_assigned).getTime()
+            : 0;
+
           return bTime - aTime;
         });
 
       setAssignments(mine);
     } catch (error) {
-      setError(
+      const message =
         error instanceof Error
           ? error.message
-          : "Failed to load your assigned assets."
-      );
+          : "Failed to load your assigned assets.";
+
+      setError(message);
     } finally {
       setLoading(false);
     }
-  }, [enabled, normalizedEmail, organisations]);
+  }, [enabled, normalizedEmail, organisationsKey]);
 
   const markReceived = useCallback(async (assignmentId: string) => {
     setActionLoadingId(assignmentId);
@@ -94,8 +104,6 @@ export function useUserAssignments({
             : item
         )
       );
-    } catch (error) {
-      throw error;
     } finally {
       setActionLoadingId(null);
     }
@@ -105,9 +113,10 @@ export function useUserAssignments({
     loadAssignments();
   }, [loadAssignments, refreshKey]);
 
-  const pendingCount = assignments.filter(
-    (item) => item.received_status === "PENDING"
-  ).length;
+  const pendingCount = useMemo(() => {
+    return assignments.filter((item) => item.received_status === "PENDING")
+      .length;
+  }, [assignments]);
 
   return {
     assignments,

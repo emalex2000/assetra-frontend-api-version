@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../../lib/apiClient";
+import { apiFetch } from "../lib/apiClient";
 import { AssignedDeviceRow, DamagedDataItem, DashboardStats, OrganisationDashboardResponse, StatusDataItem } from "@/types/dashboard";
 
 const defaultStats: DashboardStats = {

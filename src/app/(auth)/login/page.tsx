@@ -3,8 +3,8 @@
 import { FormEvent, JSX, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiEye, FiEyeOff } from "react-icons/fi";
-import { authStore } from "../../../../lib/authStore";
-import { tokenStorage } from "../../../../lib/tokenStorage";
+import { authStore } from "../../../lib/authStore";
+import { tokenStorage } from "../../../lib/tokenStorage";
 
 type LoginResponse = {
   access: string;

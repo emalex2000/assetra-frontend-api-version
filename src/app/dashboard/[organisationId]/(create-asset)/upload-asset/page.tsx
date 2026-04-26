@@ -17,10 +17,10 @@ import {
   AssetImportValidationResponse,
   ImportStep,
 } from "@/types/import";
-import UploadFile from "../../../../../../components/dashboard/UploadFile";
-import PreviewAndValidate from "../../../../../../components/dashboard/Preview";
-import ImportComplete from "../../../../../../components/dashboard/ImportComplete";
-import MapColumns from "../../../../../../components/dashboard/MapColumns";
+import UploadFile from "../../../../../components/dashboard/UploadFile";
+import PreviewAndValidate from "../../../../../components/dashboard/Preview";
+import ImportComplete from "../../../../../components/dashboard/ImportComplete";
+import MapColumns from "../../../../../components/dashboard/MapColumns";
 import router from "next/router";
 
 const steps = [

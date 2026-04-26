@@ -1,4 +1,4 @@
-import Button from "./landing-page/Button";
+import Button from "./landing_page/Button";
 
 export default function Footer(){
     return(

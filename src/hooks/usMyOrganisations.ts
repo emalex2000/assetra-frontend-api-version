@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Organisation } from "@/types/organisation";
-import { apiFetch } from "../../lib/apiClient";
+import { apiFetch } from "../lib/apiClient";
 
 type UseMyOrganisationsReturn = {
   organisations: Organisation[];

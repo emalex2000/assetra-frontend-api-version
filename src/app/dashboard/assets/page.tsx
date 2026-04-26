@@ -7,9 +7,9 @@ import { FaPlus, FaSync } from "react-icons/fa";
 import AssignAssetModal from "@/components/assignments/AssignAssetModal";
 import AssignmentTable from "@/components/assignments/AssignmentTable";
 import { useAssignments } from "@/hooks/useAssignments";
-import SideBar from "../../../../components/dashboard/LayoutNav";
-import Button from "../../../../components/landing-page/Button";
-import OverviewCard from "../../../../components/dashboard/OverviewCard";
+import SideBar from "../../../components/dashboard/LayoutNav";
+import Button from "../../../components/landing_page/Button";
+import OverviewCard from "../../../components/dashboard/OverviewCard";
 
 export default function AssignmentsPage() {
   const params = useParams();

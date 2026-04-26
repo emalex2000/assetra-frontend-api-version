@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import OrganisationsSection from "../../../components/dashboard/OrganisationSection";
-import OverviewCard from "../../../components/dashboard/OverviewCard";
+import OrganisationsSection from "../../components/dashboard/OrganisationSection";
+import OverviewCard from "../../components/dashboard/OverviewCard";
 import { FiBox, FiCheckCircle, FiMonitor, FiUser } from "react-icons/fi";
-import Button from "../../../components/landing-page/Button";
+import Button from "../../components/landing_page/Button";
 import { FaPlus } from "react-icons/fa";
-import { apiFetch } from "../../../lib/apiClient";
-import DashboardNav from "../../../components/dashboard/DashboardNav";
+import { apiFetch } from "../../lib/apiClient";
+import DashboardNav from "../../components/dashboard/DashboardNav";
 import { useUserAssignments } from "@/hooks/useUserAssignments";
 import MyAssignedAssetsPanel from "@/components/dashboard/MyAssignedAssetsPanel";
 
@@ -24,17 +24,21 @@ type Organisation = {
 
 export default function Dashboard() {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  
 
   const userEmail = useMemo(() => {
     if (typeof window === "undefined") return "";
     return sessionStorage.getItem("user_email") || "";
   }, []);
 
+  
   useEffect(() => {
-    const fetchOrganisations = async () => {
+    let isMounted = true;
+
+    async function fetchOrganisations() {
       setLoading(true);
       setError(null);
 
@@ -50,36 +54,53 @@ export default function Dashboard() {
             const errorData = await response.json();
             message = errorData?.detail || errorData?.message || message;
           } catch {
-            // ignore parse failure
+            // Ignore JSON parse failure
           }
 
           throw new Error(message);
         }
 
         const data: Organisation[] = await response.json();
+
+        if (!isMounted) return;
+
         setOrganisations(Array.isArray(data) ? data : []);
       } catch (err) {
+        if (!isMounted) return;
+
         const message =
           err instanceof Error ? err.message : "Something went wrong";
+
         setError(message);
         console.error("Dashboard fetch error:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-    };
+    }
 
     fetchOrganisations();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const totalDevices = organisations.reduce(
-    (sum, org) => sum + (org.assetsCount ?? 0),
-    0
-  );
+  const organisationSummaries = useMemo(() => {
+    return organisations.map((org) => ({
+      company_id: org.company_id,
+      name: org.name,
+    }));
+  }, [organisations]);
 
-  const organisationMembers = organisations.reduce(
-    (sum, org) => sum + (org.membersCount ?? 0),
-    0
-  );
+  const totalDevices = useMemo(() => {
+    return organisations.reduce((sum, org) => sum + (org.assetsCount ?? 0), 0);
+  }, [organisations]);
+
+  const organisationMembers = useMemo(() => {
+    return organisations.reduce((sum, org) => sum + (org.membersCount ?? 0), 0);
+  }, [organisations]);
 
   const {
     assignments,
@@ -89,19 +110,13 @@ export default function Dashboard() {
     actionLoadingId,
     markReceived,
   } = useUserAssignments({
-    organisations: organisations.map((org) => ({
-      company_id: org.company_id,
-      name: org.name,
-    })),
+    organisations: organisationSummaries,
     userEmail,
-    enabled: organisations.length > 0 && !!userEmail,
+    enabled: !loading && organisationSummaries.length > 0 && Boolean(userEmail),
     refreshKey,
   });
 
   const assignedDevices = assignments.length;
-  const receivedDevices = assignments.filter(
-    (item) => item.received_status === "RECEIVED"
-  ).length;
 
   async function handleMarkReceived(assignmentId: string) {
     try {
@@ -112,6 +127,7 @@ export default function Dashboard() {
         error instanceof Error
           ? error.message
           : "Failed to mark asset as received.";
+
       alert(message);
     }
   }
@@ -182,7 +198,11 @@ export default function Dashboard() {
         />
 
         <div className="mt-6">
-          <OrganisationsSection organisations={organisations} />
+          <OrganisationsSection
+            organisations={organisations}
+            loading={loading}
+            error={error}
+          />
         </div>
       </DashboardNav>
     </div>

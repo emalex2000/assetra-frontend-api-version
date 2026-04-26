@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FiCheckCircle, FiClock, FiMapPin, FiPackage } from "react-icons/fi";
-import Button from "../../../components/landing-page/Button";
+import Button from "../landing_page/Button";
 import type { UserDashboardAssignment } from "@/types/assignment";
 
 type Props = {

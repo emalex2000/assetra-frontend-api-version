@@ -12,7 +12,7 @@ import {
   FiCalendar,
   FiX,
 } from "react-icons/fi";
-import Button from "../../../components/landing-page/Button";
+import Button from "../landing_page/Button";
 import type { AssignableAsset, AssignableUser } from "@/types/assignment";
 import { useAssignAsset } from "@/hooks/useAssignAssets";
 

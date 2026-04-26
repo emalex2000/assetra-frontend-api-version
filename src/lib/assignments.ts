@@ -1,4 +1,4 @@
-import { apiFetch } from "../../lib/apiClient";
+import { apiFetch } from "./apiClient";
 import type {
   AssignableAsset,
   AssignableUser,

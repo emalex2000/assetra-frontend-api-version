@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { fetchAssignmentsPage } from "@/lib/assignments";
 import type { AssignmentListItem } from "@/types/assignment";
 
 type UseAssignmentsOptions = {
@@ -22,16 +23,24 @@ export function useAssignments({
   const [error, setError] = useState<string | null>(null);
 
   const loadAssignments = useCallback(async () => {
-    if (!organisationId) return;
+    if (!enabled || !organisationId) {
+      setAssignments([]);
+      setCount(0);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const data = await fetchAssignments(organisationId, page);
-      setAssignments(data.results);
-      setCount(data.count);
+      const data = await fetchAssignmentsPage(organisationId, page);
+
+      setAssignments(Array.isArray(data.results) ? data.results : []);
+      setCount(typeof data.count === "number" ? data.count : 0);
     } catch (error) {
+      setAssignments([]);
+      setCount(0);
       setError(
         error instanceof Error
           ? error.message
@@ -40,12 +49,11 @@ export function useAssignments({
     } finally {
       setLoading(false);
     }
-  }, [organisationId, page]);
+  }, [enabled, organisationId, page]);
 
   useEffect(() => {
-    if (!enabled || !organisationId) return;
     loadAssignments();
-  }, [enabled, organisationId, page, refreshKey, loadAssignments]);
+  }, [loadAssignments, refreshKey]);
 
   return {
     assignments,

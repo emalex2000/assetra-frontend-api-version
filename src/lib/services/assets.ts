@@ -1,5 +1,5 @@
 import { Category, CreateCategoryPayload, CreateDevicePayload, Device } from "@/types/asset";
-import { apiFetch } from "../../../lib/apiClient";
+import { apiFetch } from "../apiClient";
 
 
 function normalizeDevice(raw: Record<string, unknown>): Device {

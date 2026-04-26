@@ -6,9 +6,9 @@ import { FaArrowRight } from "react-icons/fa";
 import { FiChevronDown } from "react-icons/fi";
 import { getData } from "country-list";
 
-import Button from "../../../../../../components/landing-page/Button";
-import SideBar from "../../../../../../components/dashboard/LayoutNav";
-import { apiFetch } from "../../../../../../lib/apiClient";
+import Button from "../../../../../components/landing_page/Button";
+import SideBar from "../../../../../components/dashboard/LayoutNav";
+import { apiFetch } from "../../../../../lib/apiClient";
 
 type Category = {
   category_id: string;

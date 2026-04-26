@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FaArrowRight } from "react-icons/fa";
 import { FiUploadCloud } from "react-icons/fi";
 import { getData } from "country-list";
-import { authStore } from "../../../../lib/authStore";
+import { authStore } from "../../../lib/authStore";
 
 type FormDataState = {
   name: string;

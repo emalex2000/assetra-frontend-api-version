@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FiChevronRight, FiLock, FiSearch, FiUsers } from "react-icons/fi";
-import { apiFetch } from "../../../lib/apiClient";
+import { apiFetch } from "../../lib/apiClient";
 import { OrganisationSearchResult } from "@/types/search";
 
 

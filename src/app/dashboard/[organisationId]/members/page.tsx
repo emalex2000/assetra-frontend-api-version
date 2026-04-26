@@ -2,10 +2,10 @@
 
 
 import { RecentlyAssignedMember } from "@/types/members";
-import RecentlyAssignedDevicesTable from "../../../../../components/dashboard/RecentlyAssignedDevicesTable";
-import SideBar from "../../../../../components/dashboard/LayoutNav";
+import RecentlyAssignedDevicesTable from "../../../../components/dashboard/RecentlyAssignedDevicesTable";
+import SideBar from "../../../../components/dashboard/LayoutNav";
 import { PendingJoinRequest, ReviewJoinRequestAction } from "@/types/organisation";
-import { apiFetch } from "../../../../../lib/apiClient";
+import { apiFetch } from "../../../../lib/apiClient";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import JoinRequestsTable from "@/components/dashboard/JoinRequestSection";

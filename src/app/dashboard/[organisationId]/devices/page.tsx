@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import SideBar from "../../../../../components/dashboard/LayoutNav";
+import SideBar from "../../../../components/dashboard/LayoutNav";
 import DevicesPageClient from "@/components/devices/AssetsPageClient";
 
 

@@ -1,25 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { JSX, ReactNode } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { JSX, ReactNode, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   FiHome,
   FiUsers,
   FiMonitor,
-  FiRepeat,
-  FiClock,
-  FiBarChart2,
   FiBell,
-  FiSettings,
   FiActivity,
   FiUser,
   FiLogOut,
   FiSearch,
+  FiMenu,
+  FiChevronLeft,
 } from "react-icons/fi";
 import { IconType } from "react-icons";
 import { logoutUser } from "../../lib/authSession";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 type NavItem = {
   name: string;
@@ -31,66 +30,29 @@ type DashboardLayoutProps = {
   children?: ReactNode;
 };
 
-export default function SideBar({
+export default function DashboardNav({
   children,
 }: DashboardLayoutProps): JSX.Element {
   const pathname = usePathname();
-  const params = useParams<{ organisationId?: string }>();
-
   const checkingAuth = useRequireAuth();
+  const { user } = useCurrentUser();
 
-  const organisationId = params?.organisationId;
-
-  const baseDashboardPath = organisationId
-    ? `/dashboard/${organisationId}`
-    : "/dashboard";
+  const [collapsed, setCollapsed] = useState(false);
 
   const topLinks: NavItem[] = [
-    { name: "Dashboard", icon: FiHome, href: baseDashboardPath },
+    { name: "Dashboard", icon: FiHome, href: "/dashboard" },
+    { name: "Organisations", icon: FiUsers, href: "/dashboard/organisations" },
+    { name: "Settings", icon: FiMonitor, href: "/dashboard/assets" },
+    { name: "Notification", icon: FiBell, href: "/dashboard/notifications" },
     {
-      name: "Members Management",
-      icon: FiUsers,
-      href: `${baseDashboardPath}/members`,
-    },
-    {
-      name: "Asset Management",
-      icon: FiMonitor,
-      href: `${baseDashboardPath}/devices`,
-    },
-    {
-      name: "Asset Assignment",
-      icon: FiRepeat,
-      href: `${baseDashboardPath}/assignments`,
-    },
-    {
-      name: "Asset History",
-      icon: FiClock,
-      href: `${baseDashboardPath}/history`,
-    },
-    {
-      name: "Reports & Analytics",
-      icon: FiBarChart2,
-      href: `${baseDashboardPath}/reports`,
-    },
-    {
-      name: "Notification",
-      icon: FiBell,
-      href: `${baseDashboardPath}/notifications`,
-    },
-    {
-      name: "Organization Setting",
-      icon: FiSettings,
-      href: `${baseDashboardPath}/settings`,
-    },
-    {
-      name: "Activity Log",
+      name: "Create Organisation",
       icon: FiActivity,
-      href: `${baseDashboardPath}/activity-log`,
+      href: "/dashboard/create-organisation",
     },
   ];
 
   const bottomLinks: NavItem[] = [
-    { name: "Account", icon: FiUser, href: `${baseDashboardPath}/account` },
+    { name: "Account", icon: FiUser, href: "/dashboard/account" },
   ];
 
   const handleLogout = async () => {
@@ -98,12 +60,14 @@ export default function SideBar({
   };
 
   const isActiveLink = (href: string): boolean => {
-    if (href === baseDashboardPath) {
-      return pathname === href;
+    if (href === "/dashboard") {
+      return pathname === "/dashboard";
     }
 
     return pathname.startsWith(href);
   };
+
+  const primaryRole = user?.roles?.[0]?.role || "User";
 
   if (checkingAuth) {
     return (
@@ -115,10 +79,32 @@ export default function SideBar({
 
   return (
     <div className="flex min-h-screen bg-[#f8f8f8]">
-      <aside className="flex w-[250px] flex-col justify-between border-r border-gray-200 bg-white px-4 py-6">
+      <aside
+        className={`flex flex-col justify-between border-r border-gray-200 bg-white px-4 py-6 transition-all duration-300 ${
+          collapsed ? "w-[82px]" : "w-[250px]"
+        }`}
+      >
         <div>
-          <div className="mb-10 px-2">
-            <img src="/logo.png" alt="Logo" className="h-auto w-[140px]" />
+          <div
+            className={`mb-10 flex items-center ${
+              collapsed ? "justify-center" : "justify-between px-2"
+            }`}
+          >
+            {!collapsed && (
+              <img src="/logo.png" alt="Logo" className="h-auto w-[140px]" />
+            )}
+
+            {collapsed && (
+              <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain" />
+            )}
+
+            <button
+              type="button"
+              onClick={() => setCollapsed((prev) => !prev)}
+              className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-black"
+            >
+              {collapsed ? <FiMenu size={18} /> : <FiChevronLeft size={18} />}
+            </button>
           </div>
 
           <nav className="space-y-1">
@@ -130,14 +116,17 @@ export default function SideBar({
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all ${
+                  title={collapsed ? item.name : undefined}
+                  className={`flex items-center rounded-md px-3 py-2.5 text-sm transition-all ${
+                    collapsed ? "justify-center" : "gap-3"
+                  } ${
                     active
                       ? "bg-gray-100 font-medium text-black"
                       : "text-gray-500 hover:bg-gray-100 hover:text-black"
                   }`}
                 >
-                  <Icon size={17} />
-                  <span>{item.name}</span>
+                  <Icon size={18} />
+                  {!collapsed && <span>{item.name}</span>}
                 </Link>
               );
             })}
@@ -153,14 +142,17 @@ export default function SideBar({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all ${
+                title={collapsed ? item.name : undefined}
+                className={`flex items-center rounded-md px-3 py-2.5 text-sm transition-all ${
+                  collapsed ? "justify-center" : "gap-3"
+                } ${
                   active
                     ? "bg-gray-100 font-medium text-black"
                     : "text-gray-500 hover:bg-gray-100 hover:text-black"
                 }`}
               >
-                <Icon size={17} />
-                <span>{item.name}</span>
+                <Icon size={18} />
+                {!collapsed && <span>{item.name}</span>}
               </Link>
             );
           })}
@@ -168,10 +160,13 @@ export default function SideBar({
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-gray-500 transition-all hover:bg-gray-100 hover:text-black"
+            title={collapsed ? "Log out" : undefined}
+            className={`flex w-full items-center rounded-md px-3 py-2.5 text-sm text-gray-500 transition-all hover:bg-gray-100 hover:text-black ${
+              collapsed ? "justify-center" : "gap-3"
+            }`}
           >
-            <FiLogOut size={17} />
-            <span>Log out</span>
+            <FiLogOut size={18} />
+            {!collapsed && <span>Log out</span>}
           </button>
         </div>
       </aside>
@@ -192,14 +187,16 @@ export default function SideBar({
 
           <div className="ml-6 flex items-center gap-3">
             <img
-              src="/mockup-table.png"
+              src={user?.profile_image || "/mockup-table.png"}
               alt="Profile"
               className="h-10 w-10 rounded-full object-cover"
             />
 
             <div className="leading-tight">
-              <p className="text-sm font-medium text-gray-900">Michael Adams</p>
-              <p className="text-xs text-gray-500">Admin</p>
+              <p className="text-sm font-medium text-gray-900">
+                {user?.email || "Loading user..."}
+              </p>
+              <p className="text-xs text-gray-500">User</p>
             </div>
           </div>
         </header>
