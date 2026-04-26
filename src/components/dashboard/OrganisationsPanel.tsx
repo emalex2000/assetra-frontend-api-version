@@ -103,12 +103,12 @@ export default function OrganisationList() {
               >
                 <div className="flex min-w-0 items-center gap-3">
                   {logoUrl ? (
-                    <div className="relative h-12 w-12 overflow-hidden rounded-xl bg-gray-100">
-                      <Image
+                    <div className="relative h-12 w-12 flex flex-row items-center overflow-hidden rounded-xl bg-gray-100">
+                      <img
                         src={logoUrl}
                         alt={organisation.name}
                         fill
-                        className="object-cover"
+                        className="object-cover "
                       />
                     </div>
                   ) : (

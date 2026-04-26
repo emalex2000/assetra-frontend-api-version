@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import OrganisationsSection from "../../../components/dashboard/OrganisationSection";
 import OverviewCard from "../../../components/dashboard/OverviewCard";
 import { FiBox, FiCheckCircle, FiMonitor, FiUser } from "react-icons/fi";
@@ -8,6 +8,8 @@ import Button from "../../../components/landing-page/Button";
 import { FaPlus } from "react-icons/fa";
 import { apiFetch } from "../../../lib/apiClient";
 import DashboardNav from "../../../components/dashboard/DashboardNav";
+import { useUserAssignments } from "@/hooks/useUserAssignments";
+import MyAssignedAssetsPanel from "@/components/dashboard/MyAssignedAssetsPanel";
 
 type Organisation = {
   company_id: string;
@@ -24,6 +26,12 @@ export default function Dashboard() {
   const [organisations, setOrganisations] = useState<Organisation[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const userEmail = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem("user_email") || "";
+  }, []);
 
   useEffect(() => {
     const fetchOrganisations = async () => {
@@ -42,7 +50,7 @@ export default function Dashboard() {
             const errorData = await response.json();
             message = errorData?.detail || errorData?.message || message;
           } catch {
-            // ignore json parse failure and use default message
+            // ignore parse failure
           }
 
           throw new Error(message);
@@ -68,18 +76,50 @@ export default function Dashboard() {
     0
   );
 
-  const assignedDevices = 0;
-  const availableDevices = 0;
-
   const organisationMembers = organisations.reduce(
     (sum, org) => sum + (org.membersCount ?? 0),
     0
   );
 
+  const {
+    assignments,
+    loading: assignmentsLoading,
+    error: assignmentsError,
+    pendingCount,
+    actionLoadingId,
+    markReceived,
+  } = useUserAssignments({
+    organisations: organisations.map((org) => ({
+      company_id: org.company_id,
+      name: org.name,
+    })),
+    userEmail,
+    enabled: organisations.length > 0 && !!userEmail,
+    refreshKey,
+  });
+
+  const assignedDevices = assignments.length;
+  const receivedDevices = assignments.filter(
+    (item) => item.received_status === "RECEIVED"
+  ).length;
+
+  async function handleMarkReceived(assignmentId: string) {
+    try {
+      await markReceived(assignmentId);
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to mark asset as received.";
+      alert(message);
+    }
+  }
+
   return (
     <div>
       <DashboardNav>
-        <div className="mb-7 flex flex-row justify-between items-center">
+        <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-[32px] font-bold">Dashboard Overview</h1>
             <p>
@@ -112,16 +152,16 @@ export default function Dashboard() {
           />
 
           <OverviewCard
-            title="Assigned Devices"
+            title="Assigned To Me"
             amount={assignedDevices}
-            description="Devices currently in use by organization members."
+            description="Assets currently assigned to your account."
             icon={<FiCheckCircle className="text-gray-400" size={18} />}
           />
 
           <OverviewCard
-            title="Available Devices"
-            amount={availableDevices}
-            description="Devices currently available for assignment."
+            title="Pending Confirmation"
+            amount={pendingCount}
+            description="Assets waiting for you to confirm receipt."
             icon={<FiBox className="text-gray-400" size={18} />}
           />
 
@@ -132,7 +172,18 @@ export default function Dashboard() {
             icon={<FiUser className="text-gray-400" size={18} />}
           />
         </div>
-        <OrganisationsSection organisations={organisations}  />
+
+        <MyAssignedAssetsPanel
+          assignments={assignments}
+          loading={assignmentsLoading || loading}
+          error={assignmentsError}
+          actionLoadingId={actionLoadingId}
+          onMarkReceived={handleMarkReceived}
+        />
+
+        <div className="mt-6">
+          <OrganisationsSection organisations={organisations} />
+        </div>
       </DashboardNav>
     </div>
   );

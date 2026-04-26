@@ -53,3 +53,37 @@ export type AssignmentCreateResponse = {
   location_country: string;
   notes: string;
 };
+
+export type AssignmentListItem = {
+  assignment_id: string;
+  asset_name: string;
+  location: string;
+  status: string;
+  received_status: "RECEIVED" | "PENDING";
+  user_email: string;
+};
+
+export type PaginatedAssignmentsResponse = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: AssignmentListItem[];
+};
+
+
+
+export type UserDashboardAssignment = AssignmentListItem & {
+  organisationId: string;
+  organisationName: string;
+};
+
+export type MarkAssignmentReceivedPayload = {
+  assignment_id: string;
+};
+
+export type MarkAssignmentReceivedResponse = {
+  detail: string;
+  assignment_id: string;
+  asset_id: string;
+  received: boolean;
+};
